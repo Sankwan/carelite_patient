@@ -64,6 +64,12 @@ happened, lists up to three other clinicians, and can be dismissed.
 - **Appointment cancelled:** "Would you like to see another clinician
   instead?"
 
+**The earlier appointment is cancelled automatically** when the patient
+books a suggested clinician after a call that was declined or went
+unanswered — but only after the server has confirmed the new booking with
+a clinician attached. That way the patient never ends up with nothing, and
+never with a backlog of two appointments for one need.
+
 Who is suggested, in order: online with the same specialty; anyone online;
 anyone with that specialty to book a time with. The clinician who was
 unavailable is never suggested back.

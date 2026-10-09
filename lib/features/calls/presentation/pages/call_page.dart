@@ -208,7 +208,10 @@ class _CallViewState extends State<CallView> {
         }
         unawaited(navigator.pushReplacement(
           MaterialPageRoute<bool>(
-            builder: (_) => ClinicianProfilePage(clinician: clinician),
+            builder: (_) => ClinicianProfilePage(
+              clinician: clinician,
+              replacing: widget.appointment,
+            ),
           ),
         ));
       case null:

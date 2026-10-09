@@ -6,7 +6,10 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/network/failure.dart';
+import '../../../../core/utils/appointments_changed.dart';
 import '../../../../core/widgets/app_toast.dart';
+import '../../../home/data/appointment_repository.dart';
+import '../../../home/domain/appointment.dart';
 import '../../../home/domain/provider.dart';
 import '../../../home/presentation/widgets/avatar_circle.dart';
 import '../../../home/presentation/widgets/rating_badge.dart';
@@ -27,9 +30,19 @@ import '../widgets/slot_picker.dart';
 /// cold from a deep link, and pretending otherwise would give a route that
 /// renders an empty page. Noted in docs/PROJECT_STATUS.md.
 class ClinicianProfilePage extends StatelessWidget {
-  const ClinicianProfilePage({required this.clinician, super.key});
+  const ClinicianProfilePage({
+    required this.clinician,
+    this.replacing,
+    super.key,
+  });
 
   final Provider clinician;
+
+  /// The appointment this booking takes the place of — set when the
+  /// patient chose another clinician because the first could not be
+  /// reached. It is cancelled once the new booking is confirmed, so the
+  /// patient is not left with two appointments for one need.
+  final Appointment? replacing;
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +51,7 @@ class ClinicianProfilePage extends StatelessWidget {
         param1: clinician,
         param2: BookingMode.scheduled,
       )..add(const BookingStarted()),
-      child: const ClinicianProfileView(),
+      child: ClinicianProfileView(replacing: replacing),
     );
   }
 }
@@ -46,7 +59,9 @@ class ClinicianProfilePage extends StatelessWidget {
 /// The page body, with no `BlocProvider` of its own — see
 /// [FindClinicianView] for why this split exists.
 class ClinicianProfileView extends StatelessWidget {
-  const ClinicianProfileView({super.key});
+  const ClinicianProfileView({this.replacing, super.key});
+
+  final Appointment? replacing;
 
   @override
   Widget build(BuildContext context) {
@@ -75,15 +90,14 @@ class ClinicianProfileView extends StatelessWidget {
             final failure = state.failure;
             if (failure != null) {
               if (bookingWasRejected && failure is! AuthFailure) {
-                _offerAlternatives(context, state, failure);
+                _offerAlternatives(context, state, failure, replacing);
               } else {
                 AppToast.error(context, failure.message);
               }
               return;
             }
             if (state.status == BookingStatus.booked) {
-              AppToast.info(context, 'Appointment requested.');
-              Navigator.of(context).pop(true);
+              _finishBooking(context, state.booked, replacing);
             }
           },
           builder: (context, state) {
@@ -104,6 +118,57 @@ class ClinicianProfileView extends StatelessWidget {
   }
 }
 
+/// Closes the screen after a confirmed booking, first cancelling the
+/// appointment it replaces, if any.
+///
+/// Order matters: the old appointment is only cancelled after the server
+/// has returned the new one with a clinician attached. Cancelling first
+/// could leave the patient with nothing if the new booking then failed.
+Future<void> _finishBooking(
+  BuildContext context,
+  Appointment? booked,
+  Appointment? replacing,
+) async {
+  final navigator = Navigator.of(context);
+  final clinicianAssigned = booked != null && booked.provider.id.isNotEmpty;
+
+  if (replacing == null || !clinicianAssigned) {
+    AppToast.info(context, 'Appointment requested.');
+    _announceChange();
+    navigator.pop(true);
+    return;
+  }
+
+  final result = await getIt<AppointmentRepository>().cancel(replacing.id);
+  _announceChange();
+  if (!context.mounted) return;
+  final earlier = replacing.provider.displayName;
+  result.when(
+    ok: (_) => AppToast.info(
+      context,
+      'Booked with ${booked.provider.displayName}. Your earlier '
+      'appointment with $earlier was cancelled.',
+    ),
+    // The new booking stands either way; the patient is told the old one
+    // is still there rather than being left to discover a duplicate.
+    err: (_) => AppToast.warning(
+      context,
+      'Booked with ${booked.provider.displayName}. We could not cancel '
+      'your earlier appointment with $earlier — please cancel it from '
+      'Appointments.',
+    ),
+  );
+  navigator.pop(true);
+}
+
+/// Tells the Home and Appointments tabs to reload. Absent in widget tests
+/// that pump this page alone.
+void _announceChange() {
+  if (getIt.isRegistered<AppointmentsChanged>()) {
+    getIt<AppointmentsChanged>().notify();
+  }
+}
+
 /// A booking the server refused, or one that never reached it.
 ///
 /// A connection problem offers a retry. Anything else (the slot was just
@@ -113,6 +178,7 @@ Future<void> _offerAlternatives(
   BuildContext context,
   BookingState state,
   Failure failure,
+  Appointment? replacing,
 ) async {
   final clinician = state.clinician;
   final bloc = context.read<BookingBloc>();
@@ -136,7 +202,10 @@ Future<void> _offerAlternatives(
     case UnavailablePicked(clinician: final other):
       final booked = await navigator.push<bool>(
         MaterialPageRoute<bool>(
-          builder: (_) => ClinicianProfilePage(clinician: other),
+          builder: (_) => ClinicianProfilePage(
+            clinician: other,
+            replacing: replacing,
+          ),
         ),
       );
       // Booking the suggested clinician finishes this screen's job too.

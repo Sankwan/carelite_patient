@@ -18,6 +18,12 @@ the team's Django REST API.
    `10.0.2.2` is the Android emulator's address for the host machine. Demo
    login: `kofi` / `carelite123`.
 
+   No emulator? Run it in a browser instead — no flags needed:
+
+   ```bash
+   flutter run -d chrome
+   ```
+
 3. Validate:
 
    ```bash

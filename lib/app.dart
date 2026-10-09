@@ -24,7 +24,7 @@ class App extends StatelessWidget {
             getIt<AppPreferences>(),
           );
           return MaterialApp.router(
-            title: 'CareLite',
+            title: 'Carelite',
             debugShowCheckedModeBanner: false,
             theme: ThemeData(
               useMaterial3: true,

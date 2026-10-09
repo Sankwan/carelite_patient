@@ -37,6 +37,7 @@ Size: S = under a day, M = a few days, L = a week or more.
 | P1 | PT-C5 | Clinician list: search, more fields, detail endpoint | S–M | — | Find a Clinician, clinician profile |
 | P1 | PT-C6 | Specialties list | S | — | Specialist chips are hard-coded |
 | P1 | PT-C7 | Cancel with a reason; reschedule | S–M | — | Appointments |
+| P1 | PT-C9 | Replace an appointment in one step | S | — | Switching clinician after an unanswered call |
 | P1 | PT-N1 | Phone sign-up and login with OTP | M | — | "I don't have an email" path |
 | P1 | PT-N2 | Password reset and change password | M | N1 | No way to recover an account |
 | P1 | PT-N3 | Logout (refresh-token blacklist) | S | N2 | Sign out |
@@ -176,6 +177,17 @@ Same as clinician **C2**: `consultation_id` (null until started) and
     for `REQUESTED`/`CONFIRMED` scheduled appointments. Validates against
     the clinician's slots, sets the status back to `REQUESTED`, notifies
     the clinician.
+
+### PT-C9. Replace an appointment in one step
+
+- **Today:** when a clinician declines or does not answer and the patient
+  books another, the app sends two requests: `POST /api/appointments/`,
+  then `POST /api/appointments/{old}/cancel/`. If the second fails, the
+  patient has two appointments.
+- **Ask:** an optional `replaces` field on `POST /api/appointments/`
+  (`{"replaces": 32, ...}`). In one transaction: create the new
+  appointment, cancel the old one with reason `REPLACED`, end any ringing
+  call on it, and notify the first clinician. Return the new appointment.
 
 ### PT-C8. Smaller ones
 

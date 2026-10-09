@@ -1,7 +1,9 @@
 # CareLite patient app — project status
 
-Last reviewed 9 Oct 2026. `flutter analyze` clean, 290 tests passing.
-Application id `com.carelitehealth.patient`, app name "CareLite".
+Last reviewed 9 Oct 2026. `flutter analyze` clean, 295 tests passing.
+Application id `com.carelitehealth.patient`, app name "Carelite". The
+launcher icon comes from `assets/icon/carelite_patient_logo.png`; regenerate
+it with `dart run flutter_launcher_icons`.
 
 The docs folder has three files:
 
@@ -29,7 +31,15 @@ flutter run --dart-define=DJANGO_API_BASE_URL=http://10.0.2.2:8000
 ```
 
 `10.0.2.2` is the Android emulator's address for the host machine and is
-the default. Demo logins, password `carelite123`: patients `kofi`, `ama`,
+the default there. In a browser the default is `http://localhost:8000`, so
+this works with no extra flags when the emulator is not available:
+
+```bash
+flutter run -d chrome
+```
+
+The backend allows any browser origin while `DEBUG` is on. The place name
+on Home is not shown in the browser (reverse geocoding is phone-only). Demo logins, password `carelite123`: patients `kofi`, `ama`,
 `yaw`, `akua`. Clinician accounts (`dr_adjei`, …) are refused by this app on
 purpose.
 
@@ -133,9 +143,11 @@ Not waiting on anyone — these are the app's own.
 1. **Not release-ready on Android:** the release build is signed with the
    debug key, and the backend URL is plain `http`; a release build needs a
    signing key and an `https` URL.
-2. **Choosing another clinician does not cancel the first appointment.**
-   After a declined or unanswered call the patient can book someone else,
-   but the original appointment stays until they cancel it.
+2. **Replacing an appointment is two requests, not one.** When the patient
+   books another clinician after a declined or unanswered call, the app
+   books the new appointment, then cancels the old one. If the cancel
+   fails the patient is told to cancel it by hand. PT-C9 asks the backend
+   to do both in one step.
 3. **Camera and microphone permissions are declared but unused** (no call
    media yet). App stores question unused sensitive permissions.
 4. **Six packages are installed and never imported:** `local_auth`,

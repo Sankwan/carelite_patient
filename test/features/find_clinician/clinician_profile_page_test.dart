@@ -9,6 +9,8 @@ import 'package:carelite_app/features/find_clinician/presentation/bloc/booking_e
 import 'package:carelite_app/features/find_clinician/presentation/bloc/booking_state.dart';
 import 'package:carelite_app/features/find_clinician/presentation/pages/clinician_profile_page.dart';
 import 'package:carelite_app/features/find_clinician/presentation/widgets/slot_picker.dart';
+import 'package:carelite_app/features/home/data/appointment_repository.dart';
+import 'package:carelite_app/features/home/domain/appointment.dart';
 import 'package:carelite_app/features/home/domain/money.dart';
 import 'package:carelite_app/features/home/domain/provider.dart';
 import 'package:flutter/material.dart';
@@ -21,6 +23,8 @@ class _MockBookingBloc extends MockBloc<BookingEvent, BookingState>
     implements BookingBloc {}
 
 class _MockClinicianRepository extends Mock implements ClinicianRepository {}
+
+class _MockAppointmentRepository extends Mock implements AppointmentRepository {}
 
 /// Registers a clinician search that always offers [others], so the
 /// "here are other clinicians" sheet has something to show.
@@ -253,6 +257,115 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
 
       expect(find.text('Your connection dropped'), findsNothing);
+      await tester.pumpAndSettle(const Duration(seconds: 6));
+    });
+  });
+
+  group('booking in place of an appointment that fell through', () {
+    late _MockAppointmentRepository appointments;
+    const boateng = Provider(
+      id: '8',
+      kind: ProviderKind.clinician,
+      displayName: 'Dr. Boateng',
+      specialty: 'Cardiology',
+    );
+    final earlier = Appointment(
+      id: '15',
+      provider: adjei,
+      scheduledFor: DateTime(2026, 9, 14, 16),
+      status: AppointmentStatus.confirmed,
+    );
+    Appointment newBooking(Provider provider) => Appointment(
+          id: '31',
+          provider: provider,
+          scheduledFor: DateTime(2026, 9, 14, 17),
+          status: AppointmentStatus.requested,
+        );
+
+    setUp(() {
+      appointments = _MockAppointmentRepository();
+      GetIt.instance.registerSingleton<AppointmentRepository>(appointments);
+      addTearDown(GetIt.instance.reset);
+    });
+
+    Future<void> pumpBooked(
+      WidgetTester tester,
+      Appointment booked, {
+      Appointment? replacing,
+    }) async {
+      const submitting = BookingState(
+        clinician: boateng,
+        mode: BookingMode.onDemand,
+        status: BookingStatus.submitting,
+      );
+      whenListen(
+        bloc,
+        Stream.fromIterable([
+          submitting.copyWith(status: BookingStatus.booked, booked: booked),
+        ]),
+        initialState: submitting,
+      );
+      when(() => bloc.state).thenReturn(submitting);
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: BlocProvider<BookingBloc>.value(
+            value: bloc,
+            child: ClinicianProfileView(replacing: replacing),
+          ),
+        ),
+      );
+      // The toast is inserted a few frames after the cancel resolves.
+      for (var i = 0; i < 6; i++) {
+        await tester.pump(const Duration(milliseconds: 200));
+      }
+    }
+
+    testWidgets('cancels the earlier appointment once the new one is '
+        'confirmed with a clinician', (tester) async {
+      when(() => appointments.cancel('15'))
+          .thenAnswer((_) async => Result.ok(earlier));
+
+      await pumpBooked(tester, newBooking(boateng), replacing: earlier);
+
+      verify(() => appointments.cancel('15')).called(1);
+      expect(find.textContaining('was cancelled'), findsOneWidget);
+      await tester.pumpAndSettle(const Duration(seconds: 6));
+    });
+
+    testWidgets('keeps the earlier appointment if no clinician was assigned',
+        (tester) async {
+      // An unmatched booking comes back with a placeholder provider. The
+      // patient must not lose a real appointment for one nobody has taken.
+      const nobody = Provider(
+        id: '',
+        kind: ProviderKind.clinician,
+        displayName: 'Clinician unavailable',
+      );
+
+      await pumpBooked(tester, newBooking(nobody), replacing: earlier);
+
+      verifyNever(() => appointments.cancel(any()));
+      await tester.pumpAndSettle(const Duration(seconds: 6));
+    });
+
+    testWidgets('an ordinary booking cancels nothing', (tester) async {
+      await pumpBooked(tester, newBooking(boateng));
+
+      verifyNever(() => appointments.cancel(any()));
+      await tester.pumpAndSettle(const Duration(seconds: 6));
+    });
+
+    testWidgets('says so if the earlier appointment could not be cancelled',
+        (tester) async {
+      when(() => appointments.cancel('15'))
+          .thenAnswer((_) async => const Result.err(NetworkFailure()));
+
+      await pumpBooked(tester, newBooking(boateng), replacing: earlier);
+
+      expect(find.textContaining('could not cancel'), findsOneWidget);
       await tester.pumpAndSettle(const Duration(seconds: 6));
     });
   });

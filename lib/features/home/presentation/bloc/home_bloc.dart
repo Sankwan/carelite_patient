@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/network/failure.dart';
@@ -17,6 +19,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     required ProviderRepository providerRepository,
     required LocationRepository locationRepository,
     required NotificationRepository notificationRepository,
+    Stream<void>? appointmentsChanged,
   })  : _appointmentRepository = appointmentRepository,
         _providerRepository = providerRepository,
         _locationRepository = locationRepository,
@@ -24,6 +27,15 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         super(const HomeState()) {
     on<HomeStarted>(_onStarted);
     on<HomeRefreshed>(_onRefreshed);
+    _changes = appointmentsChanged?.listen((_) => add(const HomeRefreshed()));
+  }
+
+  StreamSubscription<void>? _changes;
+
+  @override
+  Future<void> close() {
+    _changes?.cancel();
+    return super.close();
   }
 
   final AppointmentRepository _appointmentRepository;

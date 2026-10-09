@@ -8,6 +8,7 @@ import 'core/config/env.dart';
 import 'core/network/api/api_client.dart';
 import 'core/network/api/token_store.dart';
 import 'core/storage/app_preferences.dart';
+import 'core/utils/appointments_changed.dart';
 import 'core/utils/external_launcher.dart';
 import 'features/appointments/presentation/bloc/appointments_bloc.dart';
 import 'features/auth/data/auth_repository.dart';
@@ -148,6 +149,7 @@ void _registerDependencies(AppPreferences preferences) {
     () => DjangoNotificationRepository(getIt<ApiClient>()),
   );
 
+  getIt.registerLazySingleton<AppointmentsChanged>(AppointmentsChanged.new);
   getIt.registerLazySingleton<ExternalLauncher>(
     () => const UrlExternalLauncher(),
   );
@@ -180,6 +182,7 @@ void _registerDependencies(AppPreferences preferences) {
       providerRepository: getIt<ProviderRepository>(),
       locationRepository: getIt<LocationRepository>(),
       notificationRepository: getIt<NotificationRepository>(),
+      appointmentsChanged: getIt<AppointmentsChanged>().stream,
     ),
   );
 
@@ -201,6 +204,7 @@ void _registerDependencies(AppPreferences preferences) {
   getIt.registerFactory<AppointmentsBloc>(
     () => AppointmentsBloc(
       appointmentRepository: getIt<AppointmentRepository>(),
+      appointmentsChanged: getIt<AppointmentsChanged>().stream,
     ),
   );
 

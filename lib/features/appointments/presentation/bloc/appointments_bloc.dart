@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/network/failure.dart';
@@ -6,16 +8,28 @@ import 'appointments_event.dart';
 import 'appointments_state.dart';
 
 class AppointmentsBloc extends Bloc<AppointmentsEvent, AppointmentsState> {
-  AppointmentsBloc({required AppointmentRepository appointmentRepository})
-      : _appointmentRepository = appointmentRepository,
+  AppointmentsBloc({
+    required AppointmentRepository appointmentRepository,
+    Stream<void>? appointmentsChanged,
+  })  : _appointmentRepository = appointmentRepository,
         super(const AppointmentsState()) {
     on<AppointmentsStarted>(_onStarted);
     on<AppointmentsRefreshed>(_onRefreshed);
     on<AppointmentsFilterChanged>(_onFilterChanged);
     on<AppointmentCancelled>(_onCancelled);
+    _changes = appointmentsChanged?.listen(
+      (_) => add(const AppointmentsRefreshed()),
+    );
   }
 
   final AppointmentRepository _appointmentRepository;
+  StreamSubscription<void>? _changes;
+
+  @override
+  Future<void> close() {
+    _changes?.cancel();
+    return super.close();
+  }
 
   Future<void> _onStarted(
     AppointmentsStarted event,
