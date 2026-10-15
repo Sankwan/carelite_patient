@@ -177,10 +177,17 @@ class DjangoAuthRepository implements AuthRepository {
 
   @override
   Future<void> signOut() async {
-    // No server-side revocation endpoint exists (confirmed: no blacklist app,
-    // BLACKLIST_AFTER_ROTATION=False in settings), so signing out is
-    // discarding the pair locally. A stolen refresh token stays valid until
-    // it expires — flagged in docs/PROJECT_STATUS.md for the backend.
+    // Revoke the refresh token so a copy of it is useless after sign-out.
+    // Best-effort: being offline must never keep someone signed in, so the
+    // local pair is cleared whatever the server says.
+    final refresh = await _tokenStore.readRefresh();
+    if (refresh != null && refresh.isNotEmpty) {
+      try {
+        await _client
+            .post(ApiContract.logout, data: {ApiContract.refreshTokenKey: refresh})
+            .timeout(const Duration(seconds: 5));
+      } catch (_) {}
+    }
     await _tokenStore.clear();
     _current = null;
     _controller.add(null);

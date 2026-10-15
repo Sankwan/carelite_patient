@@ -352,8 +352,28 @@ void main() {
   });
 
   group('signOut', () {
-    test('clears the stored pair', () async {
+    test('revokes the refresh token, then clears the stored pair', () async {
+      when(() => tokenStore.readRefresh()).thenAnswer((_) async => 'r-1');
+      when(() => client.post(ApiContract.logout, data: {'refresh': 'r-1'}))
+          .thenAnswer((_) async => Response<dynamic>(
+                requestOptions: RequestOptions(path: '/'),
+                statusCode: 205,
+              ));
+
       await repository.signOut();
+
+      verify(() => client.post(ApiContract.logout, data: {'refresh': 'r-1'}))
+          .called(1);
+      verify(() => tokenStore.clear()).called(1);
+    });
+
+    test('still signs out when the server cannot be reached', () async {
+      when(() => tokenStore.readRefresh()).thenAnswer((_) async => 'r-1');
+      when(() => client.post(ApiContract.logout, data: any(named: 'data')))
+          .thenThrow(DioException(requestOptions: RequestOptions(path: '/')));
+
+      await repository.signOut();
+
       verify(() => tokenStore.clear()).called(1);
     });
   });

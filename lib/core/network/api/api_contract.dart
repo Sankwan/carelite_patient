@@ -11,6 +11,9 @@ abstract final class ApiContract {
   // --- Auth (accounts app + simplejwt) --------------------------------
   static const String tokenObtain = '/api/auth/token/';
   static const String tokenRefresh = '/api/auth/token/refresh/';
+
+  /// Blacklists the refresh token server-side. Body: {refresh}.
+  static const String logout = '/api/auth/logout/';
   static const String tokenVerify = '/api/auth/token/verify/';
   static const String register = '/api/accounts/register/';
   static const String currentUser = '/api/accounts/me/';

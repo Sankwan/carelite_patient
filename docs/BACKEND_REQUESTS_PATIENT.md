@@ -24,6 +24,32 @@ routes) on 9 Oct 2026. IDs in this document start with `PT-`.
 
 ## Summary and priority
 
+### Status on 15 Oct 2026 (backend at github.com/campofo/carelite, main)
+
+Delivered and used by the app: PT-B1 (unread-count), PT-C1 (names),
+PT-C3 (status/from/to filters), PT-C4 (`consultation_id`,
+`active_call_id`), PT-C9 (`replaces`), PT-N3 (logout), PT-N10 (messaging),
+PT-N5 (Daily rooms, when `DAILY_API_KEY` is set), plus the realtime socket
+`ws/realtime/`. Delivered, app work not started: PT-N2 (password change and
+reset), PT-N11 (vitals), PT-N12 (consent requests).
+
+Still open: PT-B2 — the clinician is notified of a booking, but the
+patient is still not notified when the clinician confirms or declines it.
+PT-C7 (cancel takes no reason), PT-N1 (OTP), PT-N4 (push is a logging
+stub, so a closed app never rings).
+
+New asks from integrating this version:
+
+| Pri | ID | Request | Size | Why |
+|---|---|---|---|---|
+| P0 | PT-B3 | `demo.sqlite3` in the repo is behind the migrations (`duplicate column name: is_pregnant` on migrate) | S | A fresh clone cannot start without deleting it and re-seeding |
+| P1 | PT-C10 | Expose the clinician's **user** UUID on clinician and appointment responses | S | `POST /api/conversations/` needs `counterpart` (a user UUID); the patient only sees the ClinicianProfile int id, so a patient cannot start a conversation — only reply to one a clinician started |
+| P1 | PT-C11 | `?ordering=-created_at` (or a cursor) on conversation messages | S | Messages are oldest-first, 20 per page; the app reads `count` and fetches the last two pages to show the newest |
+| P2 | PT-C12 | Caller's full name in the INCOMING_CALL payload, and `appointment_id` | S | The body says "dr_adjei is calling"; the app has to fetch the call and the whole appointment list to show a real name |
+| P2 | PT-N2a | Password-reset link opens a mobile deep link, not `localhost:4200` | S | Reset email is unusable from the phone |
+| P3 | PT-S1 | WebSocket token in the query string ends up in server access logs | S | Prefer a short-lived ticket from an authenticated endpoint |
+
+
 Size: S = under a day, M = a few days, L = a week or more.
 
 | Pri | ID | Request | Size | Same as clinician | Unblocks in the patient app |

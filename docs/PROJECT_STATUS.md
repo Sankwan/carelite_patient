@@ -1,6 +1,7 @@
 # CareLite patient app — project status
 
-Last reviewed 9 Oct 2026. `flutter analyze` clean, 295 tests passing.
+Last reviewed 15 Oct 2026. `flutter analyze` clean, 328 tests passing; the
+live suite in `test_integration/` passes against the current backend.
 Application id `com.carelitehealth.patient`, app name "Carelite". The
 launcher icon comes from `assets/icon/carelite_patient_logo.png`; regenerate
 it with `dart run flutter_launcher_icons`.
@@ -14,15 +15,40 @@ The docs folder has three files:
 - **[BACKEND_REQUESTS_PATIENT.md](BACKEND_REQUESTS_PATIENT.md)** — every
   ask of the backend developer, with `PT-` IDs.
 
+## Added on 15 Oct 2026
+
+- Real names everywhere (clinicians shown as "Dr. First Last"); profile
+  save writes first/last name.
+- Switching clinician is one server call (`replaces`); no client-side
+  cancel.
+- Video: "Join video" opens the Daily room once the call is accepted.
+- Messages tab: inbox, threads, optimistic send, unread badge on the tab.
+- Realtime socket (`lib/core/realtime/`): one connection while signed in
+  and in the foreground, exponential backoff, token refresh on close code
+  4001, and a catch-up reload after any reconnect. Drives the bell and
+  message badges, open threads, call status and a banner for new
+  notifications. Polling stays as the fallback.
+- Sign-out revokes the refresh token server-side (best-effort; offline
+  sign-out still clears the device).
+- Incoming calls: a clinician's call opens a ringing screen with Answer and
+  Decline; Answer goes through the pre-call checklist if needed, then
+  joins the existing call. Only while the app is open — PT-N4.
+
+Next, in order: vitals trend on Records (PT-N11), consent requests
+(PT-N12), change password (PT-N2), then a patient-started conversation once PT-C10 lands.
+
 ## Running it
 
-Backend (Django, in `~/Downloads/carelite-main`; venv, `.env` and
-`db.sqlite3` are already set up):
+Backend (Django + Channels, cloned at `~/Development/carelite`; venv,
+`.env` and a freshly migrated and seeded `db.sqlite3` are set up — the
+committed `demo.sqlite3` is out of date, see PT-B3):
 
 ```bash
-cd ~/Downloads/carelite-main && source .venv/bin/activate
-python manage.py runserver 0.0.0.0:8000
+cd ~/Development/carelite && source .venv/bin/activate
+python manage.py runserver 0.0.0.0:8000   # Daphne: serves HTTP and ws/
 ```
+
+Demo logins: patient `kofi`, clinician `dr_adjei`, password `carelite123`.
 
 App:
 
