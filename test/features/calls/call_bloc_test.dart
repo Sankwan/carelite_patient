@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:carelite_app/core/network/failure.dart';
 import 'package:carelite_app/core/utils/result.dart';
@@ -171,5 +173,31 @@ void main() {
         expect(bloc.state.session?.elapsedSince(DateTime.now()), isNull);
       },
     );
+
+    test('a pushed change to this call is fetched at once, not on the next tick',
+        () async {
+      final pushes = StreamController<String?>();
+      when(() => repository.fetchCall('5')).thenAnswer(
+        (_) async => Result.ok(session(status: CallStatus.accepted)),
+      );
+      final bloc = CallBloc(
+        callRepository: repository,
+        appointmentId: '15',
+        // Far longer than the test: only the push can explain a fetch.
+        pollInterval: const Duration(minutes: 5),
+        callChanged: pushes.stream,
+      )..add(const CallStarted());
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      pushes
+        ..add('99')
+        ..add('5');
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      verify(() => repository.fetchCall('5')).called(1);
+      expect(bloc.state.session?.status, CallStatus.accepted);
+      await bloc.close();
+      await pushes.close();
+    });
   });
 }

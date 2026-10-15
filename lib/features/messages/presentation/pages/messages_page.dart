@@ -2,15 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../bootstrap.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../home/presentation/widgets/avatar_circle.dart';
 import '../../domain/conversation.dart';
+import '../../domain/open_conversation.dart';
 import '../bloc/conversations_bloc.dart';
 import '../bloc/conversations_event.dart';
 import '../bloc/conversations_state.dart';
+import '../bloc/messages_badge_bloc.dart';
+import '../bloc/messages_badge_event.dart';
 import 'thread_page.dart';
 
 /// The patient's conversations with their clinicians.
@@ -68,13 +72,16 @@ class MessagesPage extends StatelessWidget {
 
   Future<void> _open(BuildContext context, Conversation conversation) async {
     final bloc = context.read<ConversationsBloc>();
+    final open = getIt<OpenConversation>()..id = conversation.id;
     await Navigator.of(context, rootNavigator: true).push<void>(
       MaterialPageRoute<void>(
         builder: (_) => ThreadPage(conversation: conversation),
       ),
     );
+    open.id = null;
     // Unread counts and the last-message preview changed while it was open.
     bloc.add(const ConversationsRefreshed());
+    getIt<MessagesBadgeBloc>().add(const MessagesBadgeRefreshed());
   }
 }
 

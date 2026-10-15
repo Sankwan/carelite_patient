@@ -4,6 +4,8 @@ import 'package:carelite_app/core/network/api/api_client.dart';
 import 'package:carelite_app/core/network/api/api_contract.dart';
 import 'package:carelite_app/core/network/api/token_store.dart';
 import 'package:carelite_app/core/network/failure.dart';
+import 'package:carelite_app/core/realtime/realtime_client.dart';
+import 'package:carelite_app/core/realtime/realtime_event.dart';
 import 'package:carelite_app/features/auth/data/django_auth_repository.dart';
 import 'package:carelite_app/features/calls/data/django_call_repository.dart';
 import 'package:carelite_app/features/calls/domain/call_session.dart';
@@ -503,6 +505,34 @@ void main() {
       await messagingRepo.markRead(conversationId);
       final unreadAfter = await messagingRepo.fetchUnreadCount();
       expect(unreadAfter.when(ok: (n) => n, err: (f) => throw f), 0);
+
+      // --- realtime: the server pushes the clinician's next message -----
+      final realtime = WebSocketRealtimeClient(
+        tokenStore: tokenStore,
+        refreshSession: () => apiClient.get(ApiContract.currentUser),
+      );
+      addTearDown(() => realtime.disconnect(endSession: true));
+      final pushed = realtime.events
+          .where((e) => e is RealtimeMessageArrived)
+          .cast<RealtimeMessageArrived>()
+          .first
+          .timeout(const Duration(seconds: 10));
+      final pushedNotification = realtime.events
+          .where((e) => e is RealtimeNotification)
+          .cast<RealtimeNotification>()
+          .first
+          .timeout(const Duration(seconds: 10));
+      realtime.connect();
+      // Give the handshake a moment so the push is not sent before we join.
+      await Future<void>.delayed(const Duration(seconds: 1));
+      await clinicianApiClient.post(
+        ApiContract.conversationMessages(conversationId),
+        data: {'body': 'See you Monday.'},
+      );
+      expect((await pushed).conversationId, conversationId);
+      final live = await pushedNotification;
+      expect(live.type, 'NEW_MESSAGE');
+      expect(live.payload['conversation_id'].toString(), conversationId);
     },
     timeout: const Timeout(Duration(minutes: 2)),
   );

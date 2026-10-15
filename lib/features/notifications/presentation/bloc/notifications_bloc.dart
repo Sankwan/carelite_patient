@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/network/failure.dart';
@@ -7,17 +9,28 @@ import 'notifications_event.dart';
 import 'notifications_state.dart';
 
 class NotificationsBloc extends Bloc<NotificationsEvent, NotificationsState> {
-  NotificationsBloc({required NotificationRepository notificationRepository})
-      : _notificationRepository = notificationRepository,
+  NotificationsBloc({
+    required NotificationRepository notificationRepository,
+    Stream<void>? notificationsChanged,
+  })  : _notificationRepository = notificationRepository,
         super(const NotificationsState()) {
     on<NotificationsStarted>(_onStarted);
     on<NotificationsRefreshed>(_onRefreshed);
     on<NotificationsFilterChanged>(_onFilterChanged);
     on<NotificationRead>(_onRead);
     on<NotificationsAllRead>(_onAllRead);
+    _changes = notificationsChanged
+        ?.listen((_) => add(const NotificationsRefreshed()));
   }
 
   final NotificationRepository _notificationRepository;
+  StreamSubscription<void>? _changes;
+
+  @override
+  Future<void> close() {
+    _changes?.cancel();
+    return super.close();
+  }
 
   Future<void> _onStarted(
     NotificationsStarted event,

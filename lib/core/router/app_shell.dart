@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/messages/presentation/bloc/messages_badge_bloc.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_text_styles.dart';
 
@@ -15,6 +17,8 @@ class AppShell extends StatelessWidget {
 
   final StatefulNavigationShell navigationShell;
 
+  static const int _messagesTab = 2;
+
   static const List<({IconData icon, String label})> _tabs = [
     (icon: Icons.home_outlined, label: 'Home'),
     (icon: Icons.calendar_today_outlined, label: 'Appts'),
@@ -25,6 +29,7 @@ class AppShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final unreadMessages = context.watch<MessagesBadgeBloc?>()?.state ?? 0;
     return Scaffold(
       body: navigationShell,
       bottomNavigationBar: NavigationBar(
@@ -41,16 +46,31 @@ class AppShell extends StatelessWidget {
           initialLocation: index == navigationShell.currentIndex,
         ),
         destinations: [
-          for (final tab in _tabs)
+          for (final (index, tab) in _tabs.indexed)
             NavigationDestination(
-              icon: Icon(tab.icon, color: AppColors.muted),
-              selectedIcon: Icon(tab.icon, color: AppColors.blue),
+              icon: _badged(
+                Icon(tab.icon, color: AppColors.muted),
+                index == _messagesTab ? unreadMessages : 0,
+              ),
+              selectedIcon: _badged(
+                Icon(tab.icon, color: AppColors.blue),
+                index == _messagesTab ? unreadMessages : 0,
+              ),
               label: tab.label,
             ),
         ],
       ),
     );
   }
+}
+
+Widget _badged(Widget icon, int count) {
+  if (count <= 0) return icon;
+  return Badge(
+    label: Text(count > 99 ? '99+' : '$count'),
+    backgroundColor: AppColors.error,
+    child: icon,
+  );
 }
 
 /// Shared label styling for the nav bar, kept next to the shell so the tab

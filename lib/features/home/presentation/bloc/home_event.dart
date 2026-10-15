@@ -32,3 +32,9 @@ final class HomeStarted extends HomeEvent {
 final class HomeRefreshed extends HomeEvent {
   const HomeRefreshed();
 }
+
+/// A notification arrived. Only the bell's count is refetched — reloading
+/// the whole dashboard (location, clinicians) for one badge is wasteful.
+final class HomeUnreadChanged extends HomeEvent {
+  const HomeUnreadChanged();
+}

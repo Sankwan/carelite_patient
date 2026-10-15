@@ -6,7 +6,11 @@ import 'package:logging/logging.dart';
 
 import 'core/config/env.dart';
 import 'core/network/api/api_client.dart';
+import 'core/network/api/api_contract.dart';
 import 'core/network/api/token_store.dart';
+import 'core/realtime/realtime_client.dart';
+import 'core/realtime/realtime_event.dart';
+import 'core/realtime/realtime_session.dart';
 import 'core/storage/app_preferences.dart';
 import 'core/utils/appointments_changed.dart';
 import 'core/utils/external_launcher.dart';
@@ -38,7 +42,9 @@ import 'features/medical_records/domain/consultation.dart';
 import 'features/medical_records/presentation/bloc/records_bloc.dart';
 import 'features/messages/data/django_messaging_repository.dart';
 import 'features/messages/data/messaging_repository.dart';
+import 'features/messages/domain/open_conversation.dart';
 import 'features/messages/presentation/bloc/conversations_bloc.dart';
+import 'features/messages/presentation/bloc/messages_badge_bloc.dart';
 import 'features/messages/presentation/bloc/thread_bloc.dart';
 import 'features/notifications/data/django_notification_repository.dart';
 import 'features/notifications/data/notification_repository.dart';
@@ -122,6 +128,16 @@ void _registerDependencies(AppPreferences preferences) {
     () => ApiClient(tokenStore: getIt<TokenStore>()),
   );
 
+  // One socket for the app. A 4001 close means the access token expired;
+  // any authenticated request makes ApiClient refresh it.
+  getIt.registerLazySingleton<RealtimeClient>(
+    () => WebSocketRealtimeClient(
+      tokenStore: getIt<TokenStore>(),
+      refreshSession: () => getIt<ApiClient>().get(ApiContract.currentUser),
+    ),
+  );
+  Stream<RealtimeEvent> live() => getIt<RealtimeClient>().events;
+
   getIt.registerLazySingleton<AuthRepository>(
     () => DjangoAuthRepository(
       client: getIt<ApiClient>(),
@@ -154,6 +170,12 @@ void _registerDependencies(AppPreferences preferences) {
   );
 
   getIt.registerLazySingleton<AppointmentsChanged>(AppointmentsChanged.new);
+  getIt.registerLazySingleton<RealtimeSession>(
+    () => RealtimeSession(
+      client: getIt<RealtimeClient>(),
+      appointmentsChanged: getIt<AppointmentsChanged>(),
+    ),
+  );
   getIt.registerLazySingleton<ExternalLauncher>(
     () => const UrlExternalLauncher(),
   );
@@ -163,13 +185,25 @@ void _registerDependencies(AppPreferences preferences) {
       currentUserId: () async => getIt<AuthBloc>().state.user?.id,
     ),
   );
+  getIt.registerLazySingleton<OpenConversation>(OpenConversation.new);
   getIt.registerFactory<ConversationsBloc>(
-    () => ConversationsBloc(messagingRepository: getIt<MessagingRepository>()),
+    () => ConversationsBloc(
+      messagingRepository: getIt<MessagingRepository>(),
+      messagesChanged: live().messagesChanged,
+    ),
   );
   getIt.registerFactoryParam<ThreadBloc, String, void>(
     (conversationId, _) => ThreadBloc(
       messagingRepository: getIt<MessagingRepository>(),
       conversationId: conversationId,
+      messageArrived: live().conversationChanges(conversationId),
+    ),
+  );
+  // The tab bar outlives every screen, so its badge does too.
+  getIt.registerLazySingleton<MessagesBadgeBloc>(
+    () => MessagesBadgeBloc(
+      messagingRepository: getIt<MessagingRepository>(),
+      messagesChanged: live().messagesChanged,
     ),
   );
   getIt.registerLazySingleton<ClinicianRepository>(
@@ -202,6 +236,7 @@ void _registerDependencies(AppPreferences preferences) {
       locationRepository: getIt<LocationRepository>(),
       notificationRepository: getIt<NotificationRepository>(),
       appointmentsChanged: getIt<AppointmentsChanged>().stream,
+      notificationsChanged: live().notificationsChanged,
     ),
   );
 
@@ -253,6 +288,7 @@ void _registerDependencies(AppPreferences preferences) {
     (appointmentId, _) => CallBloc(
       callRepository: getIt<CallRepository>(),
       appointmentId: appointmentId,
+      callChanged: live().callChanges,
     ),
   );
 
@@ -263,6 +299,7 @@ void _registerDependencies(AppPreferences preferences) {
   getIt.registerFactory<NotificationsBloc>(
     () => NotificationsBloc(
       notificationRepository: getIt<NotificationRepository>(),
+      notificationsChanged: live().notificationsChanged,
     ),
   );
 

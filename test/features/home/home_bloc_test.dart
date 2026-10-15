@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:carelite_app/core/network/failure.dart';
 import 'package:carelite_app/core/utils/result.dart';
@@ -353,5 +355,25 @@ void main() {
       expect(const HomeState(patientUsername: '').avatarLabel, isNull);
       expect(const HomeState(patientUsername: '   ').avatarLabel, isNull);
     });
+  });
+  test('a live notification refreshes only the badge', () async {
+    final changes = StreamController<void>();
+    final bloc = HomeBloc(
+      appointmentRepository: appointments,
+      providerRepository: providers,
+      locationRepository: location,
+      notificationRepository: notifications,
+      notificationsChanged: changes.stream,
+    );
+    when(() => notifications.fetchUnreadCount())
+        .thenAnswer((_) async => const Result.ok(4));
+
+    changes.add(null);
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+
+    expect(bloc.state.unreadNotifications, 4);
+    verifyNever(() => location.currentPosition());
+    await bloc.close();
+    await changes.close();
   });
 }

@@ -20,6 +20,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     required LocationRepository locationRepository,
     required NotificationRepository notificationRepository,
     Stream<void>? appointmentsChanged,
+    Stream<void>? notificationsChanged,
   })  : _appointmentRepository = appointmentRepository,
         _providerRepository = providerRepository,
         _locationRepository = locationRepository,
@@ -27,15 +28,31 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         super(const HomeState()) {
     on<HomeStarted>(_onStarted);
     on<HomeRefreshed>(_onRefreshed);
+    on<HomeUnreadChanged>(_onUnreadChanged);
     _changes = appointmentsChanged?.listen((_) => add(const HomeRefreshed()));
+    _notifications =
+        notificationsChanged?.listen((_) => add(const HomeUnreadChanged()));
   }
 
   StreamSubscription<void>? _changes;
+  StreamSubscription<void>? _notifications;
 
   @override
   Future<void> close() {
     _changes?.cancel();
+    _notifications?.cancel();
     return super.close();
+  }
+
+  Future<void> _onUnreadChanged(
+    HomeUnreadChanged event,
+    Emitter<HomeState> emit,
+  ) async {
+    final result = await _notificationRepository.fetchUnreadCount();
+    result.when(
+      ok: (count) => emit(state.copyWith(unreadNotifications: count)),
+      err: (_) {},
+    );
   }
 
   final AppointmentRepository _appointmentRepository;

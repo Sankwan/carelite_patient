@@ -9,21 +9,28 @@ import 'call_state.dart';
 
 /// Drives one call attempt: initiate, poll while it's live, end.
 ///
-/// Polling is a plain `Timer.periodic`, not a server push — this backend
-/// has no websocket/SSE channel for call state, so the only way to see the
-/// other participant answer is to ask again. [pollInterval] is injectable so
-/// tests don't wait on the real clock.
+/// [callChanged] carries call ids from the realtime socket (null: any call
+/// may have changed): a change to this call is fetched at once, so an answer shows without waiting for the
+/// next tick. The `Timer.periodic` poll stays as the fallback for when the
+/// socket is down. [pollInterval] is injectable so tests don't wait on the
+/// real clock.
 class CallBloc extends Bloc<CallEvent, CallState> {
   CallBloc({
     required CallRepository callRepository,
     required this.appointmentId,
     this.pollInterval = const Duration(seconds: 3),
+    Stream<String?>? callChanged,
   })  : _callRepository = callRepository,
         super(const CallState()) {
     on<CallStarted>(_onStarted);
     on<CallPolled>(_onPolled);
     on<CallEndRequested>(_onEndRequested);
+    _pushes = callChanged
+        ?.where((id) => id == null || id == state.session?.id)
+        .listen((_) => add(const CallPolled()));
   }
+
+  StreamSubscription<String?>? _pushes;
 
   final CallRepository _callRepository;
   final String appointmentId;
@@ -119,6 +126,7 @@ class CallBloc extends Bloc<CallEvent, CallState> {
   @override
   Future<void> close() {
     _timer?.cancel();
+    _pushes?.cancel();
     return super.close();
   }
 }
