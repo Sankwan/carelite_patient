@@ -16,6 +16,7 @@ class BookingBloc extends Bloc<BookingEvent, BookingState> {
     required ClinicianRepository clinicianRepository,
     Provider? clinician,
     BookingMode mode = BookingMode.scheduled,
+    this.replacesAppointmentId,
   })  : _clinicianRepository = clinicianRepository,
         super(BookingState(clinician: clinician, mode: mode)) {
     on<BookingStarted>(_onStarted);
@@ -26,6 +27,9 @@ class BookingBloc extends Bloc<BookingEvent, BookingState> {
   }
 
   final ClinicianRepository _clinicianRepository;
+
+  /// Set when this booking replaces an appointment that fell through.
+  final int? replacesAppointmentId;
 
   Future<void> _onStarted(
     BookingStarted event,
@@ -115,7 +119,8 @@ class BookingBloc extends Bloc<BookingEvent, BookingState> {
     emit(state.copyWith(status: BookingStatus.submitting, clearFailure: true));
 
     try {
-      final result = await _clinicianRepository.book(request);
+      final result = await _clinicianRepository
+          .book(request.replacing(replacesAppointmentId));
       result.when(
         ok: (appointment) => emit(state.copyWith(
           status: BookingStatus.booked,

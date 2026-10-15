@@ -26,7 +26,7 @@ void main() {
       status: status,
       initiatedByUsername: 'kofi',
       roomName: 'room-1',
-      joinToken: 'stub-token-room-1',
+      roomUrl: 'https://carelite.daily.co/room-1',
       createdAt: DateTime.now(),
       acceptedAt: acceptedAt,
       endedAt: endedAt,

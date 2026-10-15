@@ -25,6 +25,12 @@ class _FakeLauncher implements ExternalLauncher {
     calls.add('dial:$phone');
     return succeeds;
   }
+
+  @override
+  Future<bool> openVideoRoom(String url) async {
+    calls.add('video:$url');
+    return succeeds;
+  }
 }
 
 void main() {

@@ -406,9 +406,10 @@ void main() {
       );
       final ringingCall = initiated.when(ok: (c) => c, err: (f) => throw f);
       expect(ringingCall.status, CallStatus.ringing);
-      expect(ringingCall.joinToken, startsWith('stub-token-'),
-          reason: 'confirms the media transport really is a stub, not '
-              'silently wired up server-side without this app knowing');
+      // A Daily room exists only when the server has DAILY_API_KEY set; an
+      // empty room_url must read as "no video", never as a broken link.
+      expect(ringingCall.roomUrl == null || ringingCall.roomUrl!.startsWith('https://'),
+          isTrue);
 
       // The clinician cannot accept before completing their OWN checklist —
       // the server's exact guard, verified live rather than assumed.

@@ -41,6 +41,7 @@ class BookingRequest extends Equatable {
     this.scheduledFor,
     this.reason = '',
     this.specialty,
+    this.replacesAppointmentId,
   });
 
   /// Book a named clinician.
@@ -84,6 +85,21 @@ class BookingRequest extends Equatable {
   /// Only meaningful for an `ANY` booking — the server ignores it otherwise.
   final String? specialty;
 
+  /// An appointment this booking takes the place of. The server books the
+  /// new one and cancels this one in a single transaction (PT-C9), so the
+  /// patient never ends up with both, or with neither.
+  final int? replacesAppointmentId;
+
+  BookingRequest replacing(int? appointmentId) => BookingRequest(
+        type: type,
+        mode: mode,
+        clinicianId: clinicianId,
+        scheduledFor: scheduledFor,
+        reason: reason,
+        specialty: specialty,
+        replacesAppointmentId: appointmentId,
+      );
+
   /// True when this request is complete enough for the server to accept it.
   /// Checked before enabling the button so a predictable 400 is never the
   /// way the patient finds out.
@@ -118,10 +134,11 @@ class BookingRequest extends Equatable {
       if (type == BookingType.any &&
           (specialty?.trim().isNotEmpty ?? false))
         'specialty': specialty!.trim(),
+      if (replacesAppointmentId != null) 'replaces': replacesAppointmentId,
     };
   }
 
   @override
   List<Object?> get props =>
-      [type, mode, clinicianId, scheduledFor, reason, specialty];
+      [type, mode, clinicianId, scheduledFor, reason, specialty, replacesAppointmentId];
 }

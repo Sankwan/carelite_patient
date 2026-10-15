@@ -1,5 +1,6 @@
 import 'package:bloc_test/bloc_test.dart';
 import 'package:carelite_app/core/network/failure.dart';
+import 'package:carelite_app/core/utils/external_launcher.dart';
 import 'package:carelite_app/core/utils/result.dart';
 import 'package:carelite_app/features/calls/domain/call_session.dart';
 import 'package:carelite_app/features/calls/presentation/bloc/call_bloc.dart';
@@ -17,6 +18,26 @@ import 'package:get_it/get_it.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _MockCallBloc extends MockBloc<CallEvent, CallState> implements CallBloc {}
+
+class _FakeLauncher implements ExternalLauncher {
+  final List<String> opened = [];
+
+  @override
+  Future<bool> openVideoRoom(String url) async {
+    opened.add(url);
+    return true;
+  }
+
+  @override
+  Future<bool> dial(String phone) async => true;
+
+  @override
+  Future<bool> openDirections({
+    required double latitude,
+    required double longitude,
+  }) async =>
+      true;
+}
 
 class _MockClinicianRepository extends Mock implements ClinicianRepository {}
 
@@ -51,6 +72,7 @@ void main() {
     CallStatus status = CallStatus.ringing,
     DateTime? acceptedAt,
     DateTime? endedAt,
+    String? roomUrl,
   }) {
     return CallSession(
       id: '5',
@@ -58,6 +80,7 @@ void main() {
       status: status,
       acceptedAt: acceptedAt,
       endedAt: endedAt,
+      roomUrl: roomUrl,
     );
   }
 
@@ -89,14 +112,45 @@ void main() {
     expect(find.text('Ringing…'), findsOneWidget);
   });
 
-  testWidgets('never shows real video or a fake "connecting" spinner over '
-      'nothing — states plainly that media is not wired', (tester) async {
+  testWidgets('without a video room the screen says video is off, and offers '
+      'no button that would open nothing', (tester) async {
     await pumpPage(tester, CallState(
       lifecycle: CallLifecycle.live,
       session: session(status: CallStatus.accepted, acceptedAt: DateTime.now()),
     ));
 
-    expect(find.textContaining('not connected in this build'), findsOneWidget);
+    expect(find.textContaining('Video is not set up'), findsOneWidget);
+    expect(find.text('Join video'), findsNothing);
+  });
+
+  testWidgets('once connected, Join video opens the Daily room', (tester) async {
+    final launcher = _FakeLauncher();
+    GetIt.instance.registerSingleton<ExternalLauncher>(launcher);
+    addTearDown(GetIt.instance.reset);
+    await pumpPage(tester, CallState(
+      lifecycle: CallLifecycle.live,
+      session: session(
+        status: CallStatus.accepted,
+        acceptedAt: DateTime.now(),
+        roomUrl: 'https://carelite.daily.co/room-5',
+      ),
+    ));
+
+    await tester.tap(find.text('Join video'));
+    await tester.pump();
+
+    expect(launcher.opened, ['https://carelite.daily.co/room-5']);
+  });
+
+  testWidgets('while ringing, video waits for the clinician to answer',
+      (tester) async {
+    await pumpPage(tester, CallState(
+      lifecycle: CallLifecycle.live,
+      session: session(roomUrl: 'https://carelite.daily.co/room-5'),
+    ));
+
+    expect(find.text('Join video'), findsNothing);
+    expect(find.textContaining('once the clinician answers'), findsOneWidget);
   });
 
   testWidgets('shows Connected once accepted', (tester) async {

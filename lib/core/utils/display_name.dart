@@ -41,3 +41,24 @@ String formatUsername(String username) {
 
   return parts.map(capitalize).join(' ');
 }
+
+/// A clinician's name as patients should see it.
+///
+/// Uses the real name (`full_name`) when the account has one, prefixed
+/// "Dr."; otherwise falls back to reformatting the username, so accounts
+/// created without a name still read cleanly.
+String clinicianDisplayName({String? fullName, required String username}) {
+  final name = fullName?.trim() ?? '';
+  if (name.isEmpty) return formatUsername(username);
+  return RegExp(r'^dr\.?\s', caseSensitive: false).hasMatch(name)
+      ? name
+      : 'Dr. $name';
+}
+
+/// The account's real name, or null when it has none. Blank and missing
+/// are the same thing to the UI.
+String? realNameOrNull(dynamic value) {
+  if (value is! String) return null;
+  final trimmed = value.trim();
+  return trimmed.isEmpty ? null : trimmed;
+}

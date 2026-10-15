@@ -62,30 +62,16 @@ class DjangoNotificationRepository implements NotificationRepository {
   @override
   Future<Result<int>> fetchUnreadCount() async {
     try {
-      // Deliberately not GET .../unread-count/: that endpoint counts every
-      // row regardless of channel, so a single unread incoming call (3
-      // rows: IN_APP/SMS/PUSH) inflates the bell to "3". Counting the
-      // filtered list instead costs a slightly heavier request for an
-      // honest badge — see docs/PROJECT_STATUS.md for the backend ask
-      // that would let this go back to the cheap endpoint.
-      final response = await _client.get(
-        ApiContract.notifications,
-        query: const {'unread': 'true'},
-      );
+      // Counts IN_APP rows only since the backend's B3 fix, so one incoming
+      // call is a badge of 1, and it is not limited to the first page the
+      // way counting the list was.
+      final response = await _client.get(ApiContract.notificationsUnreadCount);
       if (response.statusCode != 200 || response.data is! Map) {
         return const Result.err(NetworkFailure());
       }
-      final results = (response.data as Map)['results'];
-      if (results is! List) return const Result.err(NetworkFailure());
-      // One page only (PAGE_SIZE=20), same as everywhere else in this app —
-      // a patient with more than 20 unread notifications would undercount
-      // here. Acceptable for a badge that already treats "uncountable" as
-      // zero rather than an error; not acceptable for the notifications
-      // list itself, which is why fetchAll always reads every page it's
-      // given rather than assuming one is enough.
-      final count =
-          results.cast<Map<String, dynamic>>().where((row) => row['channel'] == 'IN_APP').length;
-      return Result.ok(count);
+      final unread = (response.data as Map)['unread'];
+      if (unread is! int) return const Result.err(NetworkFailure());
+      return Result.ok(unread);
     } on DioException catch (_) {
       return const Result.err(NetworkFailure());
     }

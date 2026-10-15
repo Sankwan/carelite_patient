@@ -8,6 +8,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/network/failure.dart';
+import '../../../../core/utils/external_launcher.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../find_clinician/presentation/pages/clinician_profile_page.dart';
 import '../../../find_clinician/presentation/widgets/clinician_unavailable_sheet.dart';
@@ -18,11 +19,8 @@ import '../bloc/call_bloc.dart';
 import '../bloc/call_event.dart';
 import '../bloc/call_state.dart';
 
-/// PT-CALL, Phase-1 scope: real signalling (ring/accept/decline/end),
-/// polled from the server, with no media rendered — the backend's own PRD
-/// calls that acceptable for this phase (docs/PROJECT_STATUS.md).
-/// Never shows a fake "connecting…" spinner over nothing: the moment the
-/// call is live, the screen says plainly that audio/video isn't wired.
+/// The call screen: ringing, connected and ended come from the server;
+/// the audio and video happen in the Daily.co room opened from here.
 class CallPage extends StatelessWidget {
   const CallPage({required this.appointment, super.key});
 
@@ -292,7 +290,7 @@ class _CallBody extends StatelessWidget {
               _ElapsedTime(session: session),
             ],
             const SizedBox(height: AppSpacing.xl),
-            const _MediaStubNotice(),
+            _VideoPanel(session: session),
           ],
         ),
       ),
@@ -357,8 +355,58 @@ class _ElapsedTime extends StatelessWidget {
   }
 }
 
-class _MediaStubNotice extends StatelessWidget {
-  const _MediaStubNotice();
+/// Where the video actually happens: a Daily.co room both participants
+/// open once the call connects. Without a room (no Daily key on the server)
+/// the call still rings and connects, and the screen says video is off
+/// rather than pretending.
+class _VideoPanel extends StatelessWidget {
+  const _VideoPanel({required this.session});
+
+  final CallSession? session;
+
+  @override
+  Widget build(BuildContext context) {
+    final current = session;
+    if (current == null || current.isFinished) return const SizedBox.shrink();
+
+    if (!current.hasVideoRoom) {
+      return const _Notice(
+        'Video is not set up on the server yet, so this call has no audio '
+        'or video.',
+      );
+    }
+    if (current.status != CallStatus.accepted) {
+      return const _Notice('Video opens once the clinician answers.');
+    }
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: () => _openRoom(context, current.roomUrl!),
+        icon: Icon(
+          current.mode == CallMode.voice ? Icons.call : Icons.videocam,
+        ),
+        label: Text(current.mode == CallMode.voice ? 'Join call' : 'Join video'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.teal,
+          foregroundColor: AppColors.white,
+          minimumSize: const Size.fromHeight(52),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openRoom(BuildContext context, String url) async {
+    final opened = await getIt<ExternalLauncher>().openVideoRoom(url);
+    if (!opened && context.mounted) {
+      AppToast.error(context, 'Could not open the video room on this phone.');
+    }
+  }
+}
+
+class _Notice extends StatelessWidget {
+  const _Notice(this.message);
+
+  final String message;
 
   @override
   Widget build(BuildContext context) {
@@ -375,8 +423,7 @@ class _MediaStubNotice extends StatelessWidget {
           const SizedBox(width: AppSpacing.sm),
           Flexible(
             child: Text(
-              'Signalling only — audio and video are not connected in this '
-              'build.',
+              message,
               style: AppTextStyles.caption.copyWith(color: AppColors.white70),
             ),
           ),

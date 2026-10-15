@@ -37,4 +37,22 @@ void main() {
       expect(formatUsername(once), once);
     });
   });
+
+  group('clinicianDisplayName', () {
+    test('uses the real name with a Dr. prefix', () {
+      expect(clinicianDisplayName(fullName: 'Kwame Adjei', username: 'dr_adjei'),
+          'Dr. Kwame Adjei');
+    });
+
+    test('does not double the prefix', () {
+      expect(clinicianDisplayName(fullName: 'Dr. Kwame Adjei', username: 'x'),
+          'Dr. Kwame Adjei');
+    });
+
+    test('an account with no name falls back to the reformatted username', () {
+      expect(clinicianDisplayName(fullName: '  ', username: 'dr_adjei'),
+          'Dr. Adjei');
+      expect(clinicianDisplayName(username: 'dr_adjei'), 'Dr. Adjei');
+    });
+  });
 }

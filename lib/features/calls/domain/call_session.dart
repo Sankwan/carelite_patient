@@ -18,11 +18,9 @@ enum CallMode { video, voice }
 
 /// One call attempt for an appointment.
 ///
-/// `joinToken` is read but never used to open real media: it is literally
-/// `"stub-token-<room>"` server-side (`CallSession.join_token`) — no WebRTC
-/// provider exists anywhere in this backend. Kept on the model so the field
-/// is visibly accounted for rather than silently dropped, not because
-/// anything here calls it.
+/// [roomUrl] is the Daily.co video room both participants open. It is
+/// empty when the server has no Daily API key configured; the call then
+/// still rings, connects and ends, but there is no video to join.
 class CallSession extends Equatable {
   const CallSession({
     required this.id,
@@ -31,7 +29,7 @@ class CallSession extends Equatable {
     this.mode = CallMode.video,
     this.initiatedByUsername,
     this.roomName,
-    this.joinToken,
+    this.roomUrl,
     this.createdAt,
     this.acceptedAt,
     this.endedAt,
@@ -46,7 +44,7 @@ class CallSession extends Equatable {
       mode: row['mode'] == 'VOICE' ? CallMode.voice : CallMode.video,
       initiatedByUsername: row['initiated_by_username'] as String?,
       roomName: room?['room_name'] as String?,
-      joinToken: room?['join_token'] as String?,
+      roomUrl: _nonEmpty(room?['room_url']),
       createdAt: _dateOrNull(row['created_at']),
       acceptedAt: _dateOrNull(row['accepted_at']),
       endedAt: _dateOrNull(row['ended_at']),
@@ -59,7 +57,9 @@ class CallSession extends Equatable {
   final CallMode mode;
   final String? initiatedByUsername;
   final String? roomName;
-  final String? joinToken;
+  final String? roomUrl;
+
+  bool get hasVideoRoom => roomUrl != null;
   final DateTime? createdAt;
   final DateTime? acceptedAt;
   final DateTime? endedAt;
@@ -90,9 +90,15 @@ class CallSession extends Equatable {
         _ => CallStatus.ringing,
       };
 
+  static String? _nonEmpty(dynamic value) {
+    if (value is! String) return null;
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
   @override
   List<Object?> get props => [
         id, appointmentId, status, mode, initiatedByUsername,
-        roomName, joinToken, createdAt, acceptedAt, endedAt,
+        roomName, roomUrl, createdAt, acceptedAt, endedAt,
       ];
 }

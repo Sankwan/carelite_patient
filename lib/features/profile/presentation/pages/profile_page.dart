@@ -82,7 +82,7 @@ class _AccountHeader extends StatelessWidget {
     return _Panel(
       child: Row(
         children: [
-          AvatarCircle(name: account.username, size: 64),
+          AvatarCircle(name: account.displayName, size: 64),
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
@@ -90,7 +90,7 @@ class _AccountHeader extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  account.username,
+                  account.displayName,
                   style: AppTextStyles.h2,
                   overflow: TextOverflow.ellipsis,
                 ),

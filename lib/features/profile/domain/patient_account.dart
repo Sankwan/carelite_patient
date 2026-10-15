@@ -1,6 +1,9 @@
 import 'package:equatable/equatable.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/utils/display_name.dart';
+import '../../../core/utils/initials.dart';
+
 import 'patient_profile.dart';
 
 /// The patient's account as the backend actually stores it: the `User` row
@@ -17,6 +20,7 @@ class PatientAccount extends Equatable {
   const PatientAccount({
     required this.id,
     required this.username,
+    this.fullName,
     this.email = '',
     this.phone = '',
     this.dateOfBirth,
@@ -33,6 +37,7 @@ class PatientAccount extends Equatable {
     return PatientAccount(
       id: '${user['id']}',
       username: user['username'] as String? ?? '',
+      fullName: realNameOrNull(user['full_name']),
       email: user['email'] as String? ?? '',
       phone: user['phone'] as String? ?? '',
       dateOfBirth: DateTime.tryParse(
@@ -47,6 +52,12 @@ class PatientAccount extends Equatable {
 
   final String id;
   final String username;
+
+  /// Null when the account has no name set.
+  final String? fullName;
+
+  /// What to call the patient on screen: their name, else their username.
+  String get displayName => fullName ?? username;
   final String email;
   final String phone;
   final DateTime? dateOfBirth;
@@ -88,6 +99,8 @@ class PatientAccount extends Equatable {
   /// The initial for the avatar. Falls back to '?' rather than crashing on
   /// an empty username.
   String get initials {
+    final name = fullName;
+    if (name != null) return initialsOf(name);
     final trimmed = username.trim();
     if (trimmed.isEmpty) return '?';
     return trimmed.substring(0, 1).toUpperCase();
@@ -102,7 +115,7 @@ class PatientAccount extends Equatable {
 
   @override
   List<Object?> get props => [
-        id, username, email, phone, dateOfBirth, sex,
+        id, username, fullName, email, phone, dateOfBirth, sex,
         bloodGroup, allergies, emergencyFlag,
       ];
 }

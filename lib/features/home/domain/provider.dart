@@ -44,19 +44,16 @@ class Provider extends Equatable {
   /// serializes as JSON **strings** ("4.80", "160.00") — verified live, not
   /// assumed. Parsing them as num would throw.
   ///
-  /// There is no `displayName` field on this backend at all: no
-  /// first_name/last_name, no "full name" anywhere. `username` is the only
-  /// human-readable identifier — for this app's own patients it happens to
-  /// be their email (see DjangoAuthRepository). The seeded clinician
-  /// accounts are `dr_adjei`, `dr_owusu`… — shown verbatim that reads as a
-  /// raw system identifier, not a name, so [formatUsername] reshapes it to
-  /// "Dr. Adjei" without inventing any information the backend didn't send.
+  /// The name is `full_name` ("Kwame Adjei", shown as "Dr. Kwame Adjei")
+  /// when the account has one, else the reformatted username.
   factory Provider.fromClinicianJson(Map<String, dynamic> row) {
     return Provider(
       id: '${row['id']}',
       kind: ProviderKind.clinician,
-      displayName: formatUsername(
-        (row['user']?['username'] ?? row['username']) as String? ?? 'Clinician',
+      displayName: clinicianDisplayName(
+        fullName: realNameOrNull(row['full_name']),
+        username: (row['user']?['username'] ?? row['username']) as String? ??
+            'Clinician',
       ),
       specialty: row['specialty'] as String?,
       rating: _decimal(row['rating']),

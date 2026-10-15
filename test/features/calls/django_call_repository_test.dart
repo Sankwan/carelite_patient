@@ -123,7 +123,7 @@ void main() {
             'status': 'RINGING',
             'room': {
               'room_name': 'abc123',
-              'join_token': 'stub-token-abc123',
+              'room_url': 'https://carelite.daily.co/abc123',
             },
             'created_at': '2026-09-09T10:09:07Z',
             'accepted_at': null,
@@ -135,7 +135,8 @@ void main() {
       final session = result.when(ok: (s) => s, err: (f) => throw f);
       expect(session.status, CallStatus.ringing);
       expect(session.isActive, isTrue);
-      expect(session.joinToken, 'stub-token-abc123');
+      expect(session.roomUrl, 'https://carelite.daily.co/abc123');
+      expect(session.hasVideoRoom, isTrue);
     });
 
     test('without your own pre-call ack the server 403s with its own reason',
@@ -177,7 +178,7 @@ void main() {
           'appointment': 15,
           'mode': 'VIDEO',
           'status': 'ENDED',
-          'room': {'room_name': 'abc123', 'join_token': 'stub-token-abc123'},
+          'room': {'room_name': 'abc123', 'room_url': ''},
           'created_at': '2026-09-09T10:09:07Z',
           'accepted_at': '2026-09-09T10:09:16Z',
           'ended_at': '2026-09-09T10:09:20Z',

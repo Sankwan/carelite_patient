@@ -14,16 +14,10 @@ import 'profile_repository.dart';
 /// running instance of github.com/campofo/carelite and round-tripped
 /// date_of_birth/sex/blood_group for real (see docs/PROJECT_STATUS.md).
 ///
-/// Two fields the app's Complete Profile screen collects have nowhere to go:
-///   * Full name — the backend has no name field anywhere (not on User, not
-///     on PatientProfile).
-///   * Emergency contact (name + phone) — PatientProfile has only
-///     `emergency_flag`, a boolean meaning "needs faster attention", not a
-///     contact to call. There is no name/phone pair to store one in.
-/// This repository does not send either — there is no endpoint field to send
-/// them to — and does not claim to. It saves what the backend actually
-/// models and returns success for exactly that, never for the two gaps.
-/// Flagged as a concrete backend ask in docs/PROJECT_STATUS.md.
+/// The full name goes to `first_name` / `last_name` on the user. The
+/// emergency contact (name + phone) is not sent: PatientProfile has only
+/// `emergency_flag`, a boolean meaning "needs faster attention", and no
+/// field to hold a contact (PT-C2 in docs/BACKEND_REQUESTS_PATIENT.md).
 class DjangoProfileRepository implements ProfileRepository {
   const DjangoProfileRepository(this._client);
 
@@ -35,6 +29,16 @@ class DjangoProfileRepository implements ProfileRepository {
     required PatientProfile profile,
   }) async {
     try {
+      final name = _splitName(profile.fullName);
+      if (name != null) {
+        final nameResponse = await _client.patch(
+          ApiContract.currentUser,
+          data: {'first_name': name.first, 'last_name': name.last},
+        );
+        if (nameResponse.statusCode != 200) {
+          return Result.err(UnexpectedFailure(_messageFrom(nameResponse.data)));
+        }
+      }
       final response = await _client.patch(
         ApiContract.patientProfile,
         data: {
@@ -94,6 +98,16 @@ class DjangoProfileRepository implements ProfileRepository {
   }
 
   /// Date only, no timezone — a birthday must never shift a day.
+  /// "Ama Serwaa Boateng" → first "Ama", last "Serwaa Boateng". The user
+  /// model has the two fields; how a patient splits their own name is
+  /// theirs to decide, so the first word is the only assumption made.
+  ({String first, String last})? _splitName(String fullName) {
+    final parts = fullName.trim().split(RegExp(r'\s+'))
+      ..removeWhere((p) => p.isEmpty);
+    if (parts.isEmpty) return null;
+    return (first: parts.first, last: parts.skip(1).join(' '));
+  }
+
   String _isoDate(DateTime date) => date.toIso8601String().split('T').first;
 
   /// Backend choices are MALE/FEMALE/OTHER/UNKNOWN (accounts.models.

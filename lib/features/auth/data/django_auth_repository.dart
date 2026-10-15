@@ -7,6 +7,7 @@ import '../../../core/network/api/api_contract.dart';
 import '../../../core/network/api/drf_error.dart';
 import '../../../core/network/api/token_store.dart';
 import '../../../core/network/failure.dart';
+import '../../../core/utils/display_name.dart';
 import '../../../core/utils/result.dart';
 import '../domain/auth_user.dart';
 import 'auth_repository.dart';
@@ -258,9 +259,7 @@ class DjangoAuthRepository implements AuthRepository {
   /// `UserSerializer` and `PatientProfileSerializer` both lack such a field.
   /// This app still needs one to gate the Complete Profile funnel screen, so
   /// it is derived: a patient counts as done once they have a date of birth
-  /// on file (the one field Complete Profile actually requires server-side —
-  /// full name and emergency contact have nowhere to be stored; see
-  /// docs/PROJECT_STATUS.md). Non-patient roles skip the funnel outright —
+  /// on file. Non-patient roles skip the funnel outright —
   /// this app is the patient console; a clinician/facility/admin account has
   /// no patient-profile row to check.
   Future<bool> _hasCompletedProfile(Map<String, dynamic> userRow) async {
@@ -286,14 +285,9 @@ class DjangoAuthRepository implements AuthRepository {
       id: '${row['id'] ?? ''}',
       phone: row['phone'] as String? ?? '',
       username: row['username'] as String? ?? '',
-      // No name field exists anywhere on this backend (User has no
-      // first_name/last_name in the serializer, PatientProfile has none
-      // either) — confirmed, not assumed. Left at AuthUser's null default
-      // rather than displaying the raw username as a name — a patient who
-      // registered through this app has username == email, and greeting
-      // them with their own email address reads as a mistake, not a
-      // feature. `username` is still carried on this record for callers
-      // that want it formatted, not shown verbatim (see [formatUsername]).
+      // The real name when the account has one. Never the username: for
+      // accounts registered through this app that is the patient's email.
+      fullName: realNameOrNull(row['full_name']),
       role: switch (role) {
         'CLINICIAN' => AppRole.providerClinician,
         // The backend's FACILITY role does not distinguish lab / imaging /

@@ -8,11 +8,11 @@ import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/network/failure.dart';
 import '../../../../core/utils/appointments_changed.dart';
 import '../../../../core/widgets/app_toast.dart';
-import '../../../home/data/appointment_repository.dart';
 import '../../../home/domain/appointment.dart';
 import '../../../home/domain/provider.dart';
 import '../../../home/presentation/widgets/avatar_circle.dart';
 import '../../../home/presentation/widgets/rating_badge.dart';
+import '../../data/clinician_repository.dart';
 import '../../domain/booking_request.dart';
 import '../bloc/booking_bloc.dart';
 import '../bloc/booking_event.dart';
@@ -47,10 +47,19 @@ class ClinicianProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider<BookingBloc>(
-      create: (_) => getIt<BookingBloc>(
-        param1: clinician,
-        param2: BookingMode.scheduled,
-      )..add(const BookingStarted()),
+      create: (_) {
+        final replacesId = int.tryParse(replacing?.id ?? '');
+        // A replacement needs the extra constructor argument, which the
+        // two-parameter DI factory cannot carry.
+        final bloc = replacesId == null
+            ? getIt<BookingBloc>(param1: clinician, param2: BookingMode.scheduled)
+            : BookingBloc(
+                clinicianRepository: getIt<ClinicianRepository>(),
+                clinician: clinician,
+                replacesAppointmentId: replacesId,
+              );
+        return bloc..add(const BookingStarted());
+      },
       child: ClinicianProfileView(replacing: replacing),
     );
   }
@@ -118,47 +127,28 @@ class ClinicianProfileView extends StatelessWidget {
   }
 }
 
-/// Closes the screen after a confirmed booking, first cancelling the
-/// appointment it replaces, if any.
+/// Closes the screen after a confirmed booking.
 ///
-/// Order matters: the old appointment is only cancelled after the server
-/// has returned the new one with a clinician attached. Cancelling first
-/// could leave the patient with nothing if the new booking then failed.
-Future<void> _finishBooking(
+/// When the booking replaced an earlier appointment, the server has already
+/// cancelled that one in the same transaction (PT-C9) — or rejected the
+/// whole request, in which case this is never reached.
+void _finishBooking(
   BuildContext context,
   Appointment? booked,
   Appointment? replacing,
-) async {
-  final navigator = Navigator.of(context);
-  final clinicianAssigned = booked != null && booked.provider.id.isNotEmpty;
-
-  if (replacing == null || !clinicianAssigned) {
+) {
+  final name = booked?.provider.displayName;
+  if (replacing != null && name != null && booked!.provider.id.isNotEmpty) {
+    AppToast.info(
+      context,
+      'Booked with $name. Your earlier appointment with '
+      '${replacing.provider.displayName} was cancelled.',
+    );
+  } else {
     AppToast.info(context, 'Appointment requested.');
-    _announceChange();
-    navigator.pop(true);
-    return;
   }
-
-  final result = await getIt<AppointmentRepository>().cancel(replacing.id);
   _announceChange();
-  if (!context.mounted) return;
-  final earlier = replacing.provider.displayName;
-  result.when(
-    ok: (_) => AppToast.info(
-      context,
-      'Booked with ${booked.provider.displayName}. Your earlier '
-      'appointment with $earlier was cancelled.',
-    ),
-    // The new booking stands either way; the patient is told the old one
-    // is still there rather than being left to discover a duplicate.
-    err: (_) => AppToast.warning(
-      context,
-      'Booked with ${booked.provider.displayName}. We could not cancel '
-      'your earlier appointment with $earlier — please cancel it from '
-      'Appointments.',
-    ),
-  );
-  navigator.pop(true);
+  Navigator.of(context).pop(true);
 }
 
 /// Tells the Home and Appointments tabs to reload. Absent in widget tests

@@ -14,6 +14,10 @@ abstract class ExternalLauncher {
   /// Opens the dialler with [phone] filled in. The patient still presses
   /// call, so no CALL_PHONE permission is needed.
   Future<bool> dial(String phone);
+
+  /// Opens a video room in a browser view inside the app (Chrome Custom
+  /// Tabs / Safari View Controller), which supports camera and microphone.
+  Future<bool> openVideoRoom(String url);
 }
 
 class UrlExternalLauncher implements ExternalLauncher {
@@ -29,6 +33,17 @@ class UrlExternalLauncher implements ExternalLauncher {
 
   @override
   Future<bool> dial(String phone) => _launch(dialUri(phone));
+
+  @override
+  Future<bool> openVideoRoom(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null || !uri.hasScheme) return false;
+    try {
+      return await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+    } catch (_) {
+      return false;
+    }
+  }
 
   /// Google's universal maps link: opens the Maps app when installed and
   /// the browser otherwise, on both Android and iOS, with the origin left

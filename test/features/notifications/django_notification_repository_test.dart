@@ -130,36 +130,20 @@ void main() {
     expect(result.when(ok: (_) => null, err: (f) => f), isNotNull);
   });
 
-  test('fetchUnreadCount counts only IN_APP rows in the unread page',
-      () async {
-    when(() => client.get(ApiContract.notifications, query: any(named: 'query'))).thenAnswer(
-      (_) async => _response(200, {
-        'results': [
-          _row(id: 1),
-          _row(id: 2, channel: 'SMS'), // same logical event as id 1
-          _row(id: 3, channel: 'PUSH'), // same logical event as id 1
-          _row(id: 4),
-        ],
-      }),
-    );
+  test('fetchUnreadCount reads the server\'s count', () async {
+    when(() => client.get(ApiContract.notificationsUnreadCount))
+        .thenAnswer((_) async => _response(200, {'unread': 3}));
 
     final result = await repository.fetchUnreadCount();
 
-    // Not 4 — that would be counting delivery records, not notifications a
-    // patient can actually see and clear.
-    expect(result.when(ok: (v) => v, err: (_) => -1), 2);
-    final captured = verify(() => client.get(
-          ApiContract.notifications,
-          query: captureAny(named: 'query'),
-        )).captured.single as Map<String, dynamic>?;
-    expect(captured, {'unread': 'true'});
+    expect(result.when(ok: (v) => v, err: (_) => -1), 3);
   });
 
   test('a non-200 while counting unread is a failure, not a silent zero',
       () async {
     // Zero would be indistinguishable from "all caught up" — the Bloc, not
     // the repository, decides that an uncountable badge should read as none.
-    when(() => client.get(ApiContract.notifications, query: any(named: 'query')))
+    when(() => client.get(ApiContract.notificationsUnreadCount))
         .thenAnswer((_) async => _response(500, null));
 
     final result = await repository.fetchUnreadCount();

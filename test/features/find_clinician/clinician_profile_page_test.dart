@@ -9,7 +9,6 @@ import 'package:carelite_app/features/find_clinician/presentation/bloc/booking_e
 import 'package:carelite_app/features/find_clinician/presentation/bloc/booking_state.dart';
 import 'package:carelite_app/features/find_clinician/presentation/pages/clinician_profile_page.dart';
 import 'package:carelite_app/features/find_clinician/presentation/widgets/slot_picker.dart';
-import 'package:carelite_app/features/home/data/appointment_repository.dart';
 import 'package:carelite_app/features/home/domain/appointment.dart';
 import 'package:carelite_app/features/home/domain/money.dart';
 import 'package:carelite_app/features/home/domain/provider.dart';
@@ -24,7 +23,6 @@ class _MockBookingBloc extends MockBloc<BookingEvent, BookingState>
 
 class _MockClinicianRepository extends Mock implements ClinicianRepository {}
 
-class _MockAppointmentRepository extends Mock implements AppointmentRepository {}
 
 /// Registers a clinician search that always offers [others], so the
 /// "here are other clinicians" sheet has something to show.
@@ -262,7 +260,6 @@ void main() {
   });
 
   group('booking in place of an appointment that fell through', () {
-    late _MockAppointmentRepository appointments;
     const boateng = Provider(
       id: '8',
       kind: ProviderKind.clinician,
@@ -281,12 +278,6 @@ void main() {
           scheduledFor: DateTime(2026, 9, 14, 17),
           status: AppointmentStatus.requested,
         );
-
-    setUp(() {
-      appointments = _MockAppointmentRepository();
-      GetIt.instance.registerSingleton<AppointmentRepository>(appointments);
-      addTearDown(GetIt.instance.reset);
-    });
 
     Future<void> pumpBooked(
       WidgetTester tester,
@@ -317,55 +308,24 @@ void main() {
           ),
         ),
       );
-      // The toast is inserted a few frames after the cancel resolves.
       for (var i = 0; i < 6; i++) {
         await tester.pump(const Duration(milliseconds: 200));
       }
     }
 
-    testWidgets('cancels the earlier appointment once the new one is '
-        'confirmed with a clinician', (tester) async {
-      when(() => appointments.cancel('15'))
-          .thenAnswer((_) async => Result.ok(earlier));
-
+    testWidgets('tells the patient the earlier appointment was cancelled — '
+        'the server did it in the same request', (tester) async {
       await pumpBooked(tester, newBooking(boateng), replacing: earlier);
 
-      verify(() => appointments.cancel('15')).called(1);
       expect(find.textContaining('was cancelled'), findsOneWidget);
       await tester.pumpAndSettle(const Duration(seconds: 6));
     });
 
-    testWidgets('keeps the earlier appointment if no clinician was assigned',
-        (tester) async {
-      // An unmatched booking comes back with a placeholder provider. The
-      // patient must not lose a real appointment for one nobody has taken.
-      const nobody = Provider(
-        id: '',
-        kind: ProviderKind.clinician,
-        displayName: 'Clinician unavailable',
-      );
-
-      await pumpBooked(tester, newBooking(nobody), replacing: earlier);
-
-      verifyNever(() => appointments.cancel(any()));
-      await tester.pumpAndSettle(const Duration(seconds: 6));
-    });
-
-    testWidgets('an ordinary booking cancels nothing', (tester) async {
+    testWidgets('an ordinary booking mentions no cancellation', (tester) async {
       await pumpBooked(tester, newBooking(boateng));
 
-      verifyNever(() => appointments.cancel(any()));
-      await tester.pumpAndSettle(const Duration(seconds: 6));
-    });
-
-    testWidgets('says so if the earlier appointment could not be cancelled',
-        (tester) async {
-      when(() => appointments.cancel('15'))
-          .thenAnswer((_) async => const Result.err(NetworkFailure()));
-
-      await pumpBooked(tester, newBooking(boateng), replacing: earlier);
-
-      expect(find.textContaining('could not cancel'), findsOneWidget);
+      expect(find.textContaining('was cancelled'), findsNothing);
+      expect(find.text('Appointment requested.'), findsOneWidget);
       await tester.pumpAndSettle(const Duration(seconds: 6));
     });
   });

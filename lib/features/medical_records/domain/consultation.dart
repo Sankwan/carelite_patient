@@ -17,13 +17,14 @@ enum ConsultationStatus {
 ///
 /// Verified against `consultations.serializers.ConsultationSerializer` on a
 /// live instance. Note there is no patient or clinician *name* anywhere:
-/// only usernames, because this backend has no name field at all.
+/// only the clinician's username and name.
 class Consultation extends Equatable {
   const Consultation({
     required this.id,
     required this.appointmentId,
     required this.status,
     this.clinicianUsername,
+    this.clinicianName,
     this.startedAt,
     this.endedAt,
     this.latestNoteVersion = 0,
@@ -37,6 +38,7 @@ class Consultation extends Equatable {
           ? ConsultationStatus.closed
           : ConsultationStatus.open,
       clinicianUsername: row['clinician_username'] as String?,
+      clinicianName: realNameOrNull(row['clinician_name']),
       startedAt: _dateOrNull(row['started_at']),
       endedAt: _dateOrNull(row['ended_at']),
       latestNoteVersion: row['latest_note_version'] as int? ?? 0,
@@ -52,6 +54,9 @@ class Consultation extends Equatable {
   /// fallback rather than a `!`.
   final String? clinicianUsername;
 
+  /// The clinician's real name, when their account has one.
+  final String? clinicianName;
+
   final DateTime? startedAt;
   final DateTime? endedAt;
 
@@ -63,7 +68,10 @@ class Consultation extends Equatable {
 
   String get clinicianLabel => clinicianUsername == null
       ? 'Clinician unavailable'
-      : formatUsername(clinicianUsername!);
+      : clinicianDisplayName(
+          fullName: clinicianName,
+          username: clinicianUsername!,
+        );
 
   /// The date the record is filed under — when it happened, falling back to
   /// when it started. Null only if the server sent neither.
@@ -83,7 +91,7 @@ class Consultation extends Equatable {
 
   @override
   List<Object?> get props => [
-        id, appointmentId, status, clinicianUsername,
+        id, appointmentId, status, clinicianUsername, clinicianName,
         startedAt, endedAt, latestNoteVersion,
       ];
 }

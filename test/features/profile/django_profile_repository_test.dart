@@ -23,6 +23,44 @@ void main() {
   setUp(() {
     client = _MockApiClient();
     repository = DjangoProfileRepository(client);
+    // The name goes to the user record, before the clinical fields.
+    when(() => client.patch(ApiContract.currentUser, data: any(named: 'data')))
+        .thenAnswer((_) async => _response(200, <String, dynamic>{}));
+  });
+
+  test('sends the full name as first and last name on the user', () async {
+    when(() => client.patch(ApiContract.patientProfile,
+            data: any(named: 'data')))
+        .thenAnswer((_) async => _response(200, {'id': 11}));
+
+    await repository.saveProfile(
+      userId: 'u1',
+      profile: PatientProfile(
+        fullName: '  Ama Serwaa  Boateng ',
+        dateOfBirth: DateTime(2001),
+      ),
+    );
+
+    final body = verify(() => client.patch(ApiContract.currentUser,
+        data: captureAny(named: 'data'))).captured.single as Map;
+    expect(body, {'first_name': 'Ama', 'last_name': 'Serwaa Boateng'});
+  });
+
+  test('a rejected name stops the save before the clinical fields', () async {
+    when(() => client.patch(ApiContract.currentUser, data: any(named: 'data')))
+        .thenAnswer((_) async => _response(400, {
+              'first_name': ['Ensure this field has no more than 150 characters.'],
+            }));
+
+    final result = await repository.saveProfile(
+      userId: 'u1',
+      profile: PatientProfile(fullName: 'Esi Owusu', dateOfBirth: DateTime(2001)),
+    );
+
+    expect(result.when(ok: (_) => null, err: (f) => f.message),
+        contains('150 characters'));
+    verifyNever(() => client.patch(ApiContract.patientProfile,
+        data: any(named: 'data')));
   });
 
   test('sends date_of_birth, sex and blood_group to the verified endpoint',
@@ -47,10 +85,9 @@ void main() {
     expect(body['date_of_birth'], '2001-01-01');
     expect(body['sex'], 'FEMALE');
     expect(body['blood_group'], 'O+');
-    // Verified: PatientProfileSerializer has no full_name and no emergency
-    // contact name/phone field (only a differently-meaning boolean
-    // emergency_flag) — there is nowhere to send them, so this must never
-    // silently invent keys the backend will ignore or 400 on.
+    // The name goes to the user record, not here, and PatientProfile has no
+    // emergency contact name/phone (only the differently-meaning boolean
+    // emergency_flag) — so neither may appear in this payload.
     expect(body.containsKey('full_name'), isFalse);
     expect(body.containsKey('emergency_contact_name'), isFalse);
     expect(body.containsKey('emergency_contact_phone'), isFalse);
