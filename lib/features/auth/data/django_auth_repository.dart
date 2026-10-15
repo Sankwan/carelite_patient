@@ -198,6 +198,28 @@ class DjangoAuthRepository implements AuthRepository {
     await _controller.close();
   }
 
+  @override
+  Future<Result<void>> changePassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await _client.post(
+        ApiContract.passwordChange,
+        data: {'old_password': oldPassword, 'new_password': newPassword},
+      );
+      if (response.statusCode == 200) return const Result.ok(null);
+      if (response.statusCode == 401) {
+        return const Result.err(
+          AuthFailure('Your session has expired. Please sign in again.'),
+        );
+      }
+      return Result.err(AuthFailure(_messageFrom(response.data)));
+    } on DioException catch (e) {
+      return Result.err(_networkFailure(e));
+    }
+  }
+
   Future<void> _persistTokens(Map<dynamic, dynamic> body) {
     return _tokenStore.save(
       access: body[ApiContract.accessTokenKey] as String,

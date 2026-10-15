@@ -33,10 +33,12 @@ Size: S = under a day, M = a few days, L = a week or more. Status is as of
 landed as new apps, plus a `channels`/`daphne` realtime layer at
 `ws/realtime/`. The app now uses names, status/date filters, the richer
 appointment payload, one-step replace, logout, Daily video rooms,
-messaging and the realtime socket — see "Delivered" below for the exact
-list. Building against this version surfaced six new asks (PT-B3, C10,
-C11, C12, N2a, S1) and confirmed three more deliveries the app hasn't
-wired up yet (N2, N11, N12).
+messaging, the realtime socket, change password, vitals trend and record
+access — see "Delivered" below for the exact list. Building against this
+version surfaced six new asks (PT-B3, C10, C11, C12, N2a, S1) and, in a
+second pass, wired up three deliveries the app hadn't used yet (N2's
+change-password half, N11, N12) — only the password-**reset** half of N2
+is still blocked, by N2a.
 
 | Pri | ID | Request | Size | Status |
 |---|---|---|---|---|
@@ -54,7 +56,7 @@ wired up yet (N2, N11, N12).
 | P1 | PT-C10 | Expose the clinician's **user** UUID on clinician/appointment responses | S | **New** |
 | P1 | PT-C11 | Ordering or a cursor on conversation messages | S | **New** |
 | P1 | PT-N1 | Phone sign-up and login with OTP | M | Open |
-| P1 | PT-N2 | Password reset and change password | M | Backend ready, app pending |
+| P1 | PT-N2 | Change password | M | ✅ Done (reset blocked by N2a) |
 | P1 | PT-N2a | Password-reset link opens a mobile deep link, not `localhost:4200` | S | **New** |
 | P1 | PT-N3 | Logout (refresh-token blacklist) | S | ✅ Done |
 | P2 | PT-C12 | Caller's full name and `appointment_id` in the INCOMING_CALL payload | S | **New** |
@@ -68,8 +70,8 @@ wired up yet (N2, N11, N12).
 | P2 | PT-L1 | Patient accepts or declines an ordered test | M | Open |
 | P2 | PT-L2 | Pickup or delivery for a prescription | M | Open |
 | P3 | PT-N10 | Messaging | L | ✅ Done |
-| P3 | PT-N11 | Vitals history | M | Backend ready, app pending |
-| P3 | PT-N12 | Record access / consent | M | Backend ready, app pending |
+| P3 | PT-N11 | Vitals history | M | ✅ Done |
+| P3 | PT-N12 | Record access / consent | M | ✅ Done |
 | P3 | PT-P1 | Pay for a consultation, test, prescription | L | Open |
 | P3 | PT-P2 | Featured clinicians first | S | Open |
 | P3 | PT-S1 | WebSocket token travels in the query string (access-log exposure) | S | **New** |
@@ -308,20 +310,29 @@ real name, before it can show who is calling.
   visible concept. The SMS channel is a logging stub today; this needs the
   real provider (Hubtel or Twilio).
 
-### PT-N2. Password reset and change password — backend ready, app pending
+### PT-N2. Change password — ✅ Done in-app; reset still blocked by N2a
 
 Same as clinician **N1**; one implementation serves both apps.
 
-- **Delivered:** `POST /api/auth/password-reset/`,
-  `/password-reset/confirm/`, `/password-change/`. Not wired up in the
-  patient app yet — next on the list after this review.
+- **Delivered and wired up:** `POST /api/auth/password-change/`
+  {old_password, new_password} — Profile → Change password, a dedicated
+  screen through `ChangePasswordBloc`/`AuthRepository.changePassword`.
+  Verified live: a wrong current password surfaces the server's own field
+  error; a successful change immediately rejects the old password and
+  accepts the new one.
+- **Not wired up:** `POST /api/auth/password-reset/` and
+  `/password-reset/confirm/` ("forgot password" from the login screen).
+  Building the request half is easy; the confirm half needs **PT-N2a**
+  fixed first, or there is nowhere for the emailed link to send the
+  patient.
 
 ### PT-N2a. Password-reset link is not reachable from a phone — new, P1
 
 The reset email's link points at `FRONTEND_PASSWORD_RESET_URL`, which is
 set to `http://localhost:4200` — a web dev server, not anything a phone
 can open. A patient who requests a reset on their phone gets an email
-they cannot act on from the device they're using.
+they cannot act on from the device they're using. This is what blocks
+"forgot password" in the app — see **N2** above.
 
 - **Ask:** either a deep link the apps can register for
   (`carelite://reset-password?token=...`), or a hosted web page at a real
@@ -438,24 +449,30 @@ both apps.
   inbox, threads and unread badge are all built on this — see **C10**
   and **C11** for the two rough edges found while building it.
 
-### PT-N11. Vitals history — backend ready, app pending
+### PT-N11. Vitals history — ✅ Done
 
 Same model as clinician **N3**.
 
-- **Delivered:** `vitals` app —
-  `GET/POST /api/consultations/{id}/vitals/` and
-  `GET /api/patients/{id}/vitals/` (a patient may read their own trend).
-  Not wired up in the app yet; next after password change/reset.
+- **Delivered and wired up:** `GET/POST /api/consultations/{id}/vitals/`
+  and `GET /api/patients/{id}/vitals/` (a patient may read their own
+  trend). Records → "Vitals trend" shows every reading newest-first
+  through `VitalsBloc`/`DjangoVitalsRepository`. Verified live against a
+  patient with real seeded readings (BP, pulse, temperature, SpO2,
+  weight, BMI all round-tripped).
 
-### PT-N12. Record access / consent — backend ready, app pending
+### PT-N12. Record access / consent — ✅ Done
 
-- **Delivered:** an `access` app —
+- **Delivered and wired up:** an `access` app —
   `GET/POST /api/access-requests/`,
   `POST /api/access-requests/{id}/approve|decline|revoke/`,
-  `GET /api/patients/`, `GET /api/patients/{id}/`. Approving/declining
-  raises a `GENERIC` notification with `payload.access_request_id`. Not
-  wired up in the app yet — it would add a "Who can see my record" screen
-  reading this list and calling the action endpoint.
+  `GET /api/patients/`, `GET /api/patients/{id}/`. Profile → "Who can see
+  my record" lists pending requests with Approve/Decline and active
+  grants with Revoke, through `AccessRequestsBloc`/
+  `DjangoAccessRepository`. A `GENERIC` notification with
+  `payload.access_request_id` now opens this screen directly from the
+  bell. Verified live end-to-end: a clinician's request → patient
+  approves (ACTIVE) → patient revokes (INACTIVE) → the clinician cannot
+  decide their own request (403).
 
 ### PT-N13. Result files and PDF export
 
@@ -648,12 +665,14 @@ In use and working:
   `GET /api/conversations/unread-count/`
 - Realtime: `ws/realtime/?token=<access>` — one socket per session,
   reconnects with backoff, re-authenticates on close code 4001
+- Account: `POST /api/auth/password-change/`
+- Vitals: `GET /api/patients/{id}/vitals/`
+- Record access: `GET /api/access-requests/`,
+  `POST /api/access-requests/{id}/approve|decline|revoke/`
 
 Exists but not used by the patient app yet: `/api/auth/password-reset/`,
-`/password-reset/confirm/`, `/password-change/` (**PT-N2**);
-`/api/patients/{id}/vitals/` (**PT-N11**); `/api/access-requests/`
-and `/api/patients/` (**PT-N12**); `/api/devices/` (waiting on Firebase,
-**PT-N4**); `/api/appointments/{id}/location/`;
+`/password-reset/confirm/` (blocked by **PT-N2a**); `/api/devices/`
+(waiting on Firebase, **PT-N4**); `/api/appointments/{id}/location/`;
 `/api/auth/token/verify/`.
 
 Things the app relies on that are easy to break:

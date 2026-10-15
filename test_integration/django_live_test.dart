@@ -18,10 +18,13 @@ import 'package:carelite_app/features/home/data/django_provider_repository.dart'
 import 'package:carelite_app/features/home/domain/appointment.dart';
 import 'package:carelite_app/features/home/domain/provider.dart';
 import 'package:carelite_app/features/medical_records/data/django_records_repository.dart';
+import 'package:carelite_app/features/medical_records/data/django_vitals_repository.dart';
 import 'package:carelite_app/features/medical_records/domain/consultation.dart';
 import 'package:carelite_app/features/messages/data/django_messaging_repository.dart';
 import 'package:carelite_app/features/notifications/data/django_notification_repository.dart';
+import 'package:carelite_app/features/profile/data/django_access_repository.dart';
 import 'package:carelite_app/features/profile/data/django_profile_repository.dart';
+import 'package:carelite_app/features/profile/domain/access_request.dart';
 import 'package:carelite_app/features/profile/domain/patient_profile.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -157,6 +160,7 @@ void main() {
           bloodType: BloodType.oPositive,
         ),
       );
+      expect(saveResult.when(ok: (_) => true, err: (_) => false), isTrue);
       expect(saveResult.when(ok: (_) => true, err: (_) => false), isTrue);
 
       await auth.dispose();
@@ -569,6 +573,61 @@ void main() {
           .declineCall(secondRing.when(ok: (c) => c.id, err: (f) => throw f));
       expect(declined.when(ok: (c) => c.status, err: (f) => throw f),
           CallStatus.declined);
+
+      // --- change password, through the production repository ----------
+      const newPassword = 'Ch4ngedPass!77';
+      final changed =
+          await auth.changePassword(oldPassword: password, newPassword: newPassword);
+      expect(changed.when(ok: (_) => true, err: (f) => throw f), isTrue);
+
+      await auth.signOut();
+      final oldPasswordRejected =
+          await auth.signInWithPassword(email: email, password: password);
+      expect(oldPasswordRejected.when(ok: (_) => null, err: (f) => f),
+          isA<AuthFailure>());
+      final newPasswordAccepted =
+          await auth.signInWithPassword(email: email, password: newPassword);
+      expect(newPasswordAccepted.when(ok: (u) => u.phone, err: (_) => null), phone);
+
+      // --- vitals trend, through the production repository --------------
+      //
+      // A freshly registered patient has none yet — an empty, successful
+      // read is the correct answer, not an error.
+      final vitalsRepo = DjangoVitalsRepository(
+        apiClient,
+        currentUserId: () async => registeredUser.id,
+      );
+      final trend = await vitalsRepo.fetchTrend();
+      expect(trend.when(ok: (v) => v, err: (f) => throw f), isEmpty);
+
+      // --- record-access consent, through the production repository -----
+      final accessRequest = await clinicianApiClient.post(
+        ApiContract.accessRequests,
+        data: {'patient': registeredUser.id, 'reason': 'Live check'},
+      );
+      expect(accessRequest.statusCode, 201);
+      final accessRequestId = '${accessRequest.data['id']}';
+
+      final accessRepo = DjangoAccessRepository(apiClient);
+      final requests = await accessRepo.fetchRequests();
+      final pending =
+          requests.when(ok: (list) => list.single, err: (f) => throw f);
+      expect(pending.id, accessRequestId);
+      expect(pending.status, AccessRequestStatus.pending);
+
+      final approved = await accessRepo.approve(accessRequestId);
+      expect(approved.when(ok: (r) => r.status, err: (f) => throw f),
+          AccessRequestStatus.active);
+
+      final revoked = await accessRepo.revoke(accessRequestId);
+      expect(revoked.when(ok: (r) => r.status, err: (f) => throw f),
+          AccessRequestStatus.inactive);
+
+      // A clinician may not decide their own request — only the patient.
+      final clinicianAttempt = await clinicianApiClient.post(
+        ApiContract.accessRequestAction(accessRequestId, 'approve'),
+      );
+      expect(clinicianAttempt.statusCode, 403);
     },
     timeout: const Timeout(Duration(minutes: 2)),
   );

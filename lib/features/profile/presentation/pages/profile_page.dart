@@ -12,6 +12,8 @@ import '../../domain/patient_account.dart';
 import '../bloc/profile_bloc.dart';
 import '../bloc/profile_event.dart';
 import '../bloc/profile_state.dart';
+import 'change_password_page.dart';
+import 'record_access_page.dart';
 
 /// The patient's account.
 ///
@@ -56,6 +58,8 @@ class ProfilePage extends StatelessWidget {
                     _MedicalDetails(account: state.account!),
                     const SizedBox(height: AppSpacing.md),
                     _ContactDetails(account: state.account!),
+                    const SizedBox(height: AppSpacing.md),
+                    const _AccountActions(),
                   ] else
                     _CouldNotLoad(state: state),
                   const SizedBox(height: AppSpacing.xl),
@@ -187,6 +191,67 @@ class _ContactDetails extends StatelessWidget {
             style: AppTextStyles.caption,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AccountActions extends StatelessWidget {
+  const _AccountActions();
+
+  @override
+  Widget build(BuildContext context) {
+    return _Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Account',
+            style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _ActionRow(
+            icon: Icons.lock_outline,
+            label: 'Change password',
+            onTap: () => Navigator.of(context, rootNavigator: true).push<void>(
+              MaterialPageRoute<void>(builder: (_) => const ChangePasswordPage()),
+            ),
+          ),
+          _ActionRow(
+            icon: Icons.shield_outlined,
+            label: 'Who can see my record',
+            onTap: () => Navigator.of(context, rootNavigator: true).push<void>(
+              MaterialPageRoute<void>(builder: (_) => const RecordAccessPage()),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionRow extends StatelessWidget {
+  const _ActionRow({required this.icon, required this.label, required this.onTap});
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: AppColors.muted),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(child: Text(label, style: AppTextStyles.body)),
+            const Icon(Icons.chevron_right, color: AppColors.muted),
+          ],
+        ),
       ),
     );
   }

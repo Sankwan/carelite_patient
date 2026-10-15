@@ -10,6 +10,7 @@ import '../bloc/records_bloc.dart';
 import '../bloc/records_event.dart';
 import '../bloc/records_state.dart';
 import 'record_detail_page.dart';
+import 'vitals_trend_page.dart';
 
 /// The patient's consultation history.
 ///
@@ -47,6 +48,8 @@ class MedicalRecordsPage extends StatelessWidget {
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(AppSpacing.lg),
                 children: [
+                  const _VitalsTrendLink(),
+                  const SizedBox(height: AppSpacing.md),
                   if (state.consultations.isEmpty)
                     _EmptyState(state: state)
                   else
@@ -58,6 +61,53 @@ class MedicalRecordsPage extends StatelessWidget {
               ),
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+class _VitalsTrendLink extends StatelessWidget {
+  const _VitalsTrendLink();
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.white,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+      child: InkWell(
+        onTap: () => Navigator.of(context, rootNavigator: true).push<void>(
+          MaterialPageRoute<void>(builder: (_) => const VitalsTrendPage()),
+        ),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.lightTealTint,
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                ),
+                child: const Icon(Icons.monitor_heart_outlined, color: AppColors.teal),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Text(
+                  'Vitals trend',
+                  style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w600),
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: AppColors.muted),
+            ],
+          ),
         ),
       ),
     );

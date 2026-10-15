@@ -64,6 +64,7 @@ class AppNotification extends Equatable {
   /// payload is a JSONField the server can shape freely.
   int? get appointmentId => _intFrom(payload['appointment_id']);
   int? get investigationId => _intFrom(payload['investigation_id']);
+  int? get accessRequestId => _intFrom(payload['access_request_id']);
 
   /// "2:30 PM" today, "Yesterday", else "4 Sep" — computed, never stored.
   String relativeLabel({DateTime? now}) {

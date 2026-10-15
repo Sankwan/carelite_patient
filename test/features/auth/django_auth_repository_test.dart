@@ -377,4 +377,50 @@ void main() {
       verify(() => tokenStore.clear()).called(1);
     });
   });
+
+  group('changePassword', () {
+    test('succeeds when the server accepts it', () async {
+      when(() => client.post(
+            ApiContract.passwordChange,
+            data: {'old_password': 'old123', 'new_password': 'newpass456'},
+          )).thenAnswer((_) async => _response(200, {'detail': 'Password changed.'}));
+
+      final result = await repository.changePassword(
+        oldPassword: 'old123',
+        newPassword: 'newpass456',
+      );
+
+      expect(result.when(ok: (_) => true, err: (_) => false), isTrue);
+    });
+
+    test('a wrong current password surfaces the server\'s own field error',
+        () async {
+      when(() => client.post(ApiContract.passwordChange, data: any(named: 'data')))
+          .thenAnswer((_) async => _response(400, {
+                'old_password': ['Current password is incorrect.'],
+              }));
+
+      final result = await repository.changePassword(
+        oldPassword: 'wrong',
+        newPassword: 'newpass456',
+      );
+
+      expect(
+        result.when(ok: (_) => null, err: (f) => f.message),
+        'Current password is incorrect.',
+      );
+    });
+
+    test('a dropped connection is a network failure', () async {
+      when(() => client.post(ApiContract.passwordChange, data: any(named: 'data')))
+          .thenThrow(DioException(requestOptions: RequestOptions(path: '/')));
+
+      final result = await repository.changePassword(
+        oldPassword: 'old123',
+        newPassword: 'newpass456',
+      );
+
+      expect(result.when(ok: (_) => null, err: (f) => f), isA<NetworkFailure>());
+    });
+  });
 }

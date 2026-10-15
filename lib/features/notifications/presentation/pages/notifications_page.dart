@@ -7,6 +7,7 @@ import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/widgets/app_toast.dart';
+import '../../../profile/presentation/pages/record_access_page.dart';
 import '../../domain/app_notification.dart';
 import '../bloc/notifications_bloc.dart';
 import '../bloc/notifications_event.dart';
@@ -110,7 +111,10 @@ class NotificationsPage extends StatelessWidget {
       NotificationType.clinicianAssigned => 'View appointment',
       NotificationType.incomingCall => 'Go to appointment',
       NotificationType.payment => null,
-      NotificationType.generic => null,
+      // Only an access-request GENERIC has somewhere to go; others (none
+      // today) fall through to null.
+      NotificationType.generic =>
+        notification.accessRequestId != null ? 'Review request' : null,
     };
   }
 
@@ -122,8 +126,13 @@ class NotificationsPage extends StatelessWidget {
       case NotificationType.clinicianAssigned:
       case NotificationType.incomingCall:
         context.push(AppRoutes.appointments);
-      case NotificationType.payment:
       case NotificationType.generic:
+        if (notification.accessRequestId != null) {
+          Navigator.of(context, rootNavigator: true).push<void>(
+            MaterialPageRoute<void>(builder: (_) => const RecordAccessPage()),
+          );
+        }
+      case NotificationType.payment:
         break;
     }
   }

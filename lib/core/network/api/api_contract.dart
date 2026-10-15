@@ -15,6 +15,10 @@ abstract final class ApiContract {
   /// Blacklists the refresh token server-side. Body: {refresh}.
   static const String logout = '/api/auth/logout/';
   static const String tokenVerify = '/api/auth/token/verify/';
+
+  /// Body: {old_password, new_password}. 400 with `old_password: [...]` on
+  /// a wrong current password.
+  static const String passwordChange = '/api/auth/password-change/';
   static const String register = '/api/accounts/register/';
   static const String currentUser = '/api/accounts/me/';
   static const String patientProfile = '/api/accounts/me/patient-profile/';
@@ -122,6 +126,22 @@ abstract final class ApiContract {
   // DjangoProviderRepository.
   static const String facilities = '/api/facilities/';
   static const String match = '/api/match/';
+
+  // --- Vitals (vitals app) ----------------------------------------------
+  //
+  // A patient reads their own trend across every consultation; a clinician
+  // reads it for a patient they share a consultation with. Oldest first.
+  static String patientVitals(String patientId) =>
+      '/api/patients/$patientId/vitals/';
+
+  // --- Record access / consent (access app) ------------------------------
+  //
+  // A clinician requests access to a patient's details; the patient
+  // approves, declines or revokes. `GET` is scoped to the caller: a
+  // clinician sees requests they made, a patient sees requests on them.
+  static const String accessRequests = '/api/access-requests/';
+  static String accessRequestAction(String id, String action) =>
+      '/api/access-requests/$id/$action/';
 
   // --- Not shipped ------------------------------------------------------
   // No OTP endpoints exist on this backend at all (confirmed absent from

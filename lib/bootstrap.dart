@@ -38,9 +38,12 @@ import 'features/home/presentation/bloc/home_bloc.dart';
 import 'features/location/data/location_repository.dart';
 import 'features/location/presentation/bloc/location_bloc.dart';
 import 'features/medical_records/data/django_records_repository.dart';
+import 'features/medical_records/data/django_vitals_repository.dart';
 import 'features/medical_records/data/records_repository.dart';
+import 'features/medical_records/data/vitals_repository.dart';
 import 'features/medical_records/domain/consultation.dart';
 import 'features/medical_records/presentation/bloc/records_bloc.dart';
+import 'features/medical_records/presentation/bloc/vitals_bloc.dart';
 import 'features/messages/data/django_messaging_repository.dart';
 import 'features/messages/data/messaging_repository.dart';
 import 'features/messages/domain/open_conversation.dart';
@@ -52,8 +55,12 @@ import 'features/notifications/data/notification_repository.dart';
 import 'features/notifications/presentation/bloc/notifications_bloc.dart';
 import 'features/onboarding/data/onboarding_repository.dart';
 import 'features/onboarding/presentation/bloc/onboarding_bloc.dart';
+import 'features/profile/data/access_repository.dart';
+import 'features/profile/data/django_access_repository.dart';
 import 'features/profile/data/django_profile_repository.dart';
 import 'features/profile/data/profile_repository.dart';
+import 'features/profile/presentation/bloc/access_requests_bloc.dart';
+import 'features/profile/presentation/bloc/change_password_bloc.dart';
 import 'features/profile/presentation/bloc/profile_bloc.dart';
 import 'features/profile/presentation/bloc/profile_setup_bloc.dart';
 
@@ -101,7 +108,8 @@ Future<void> bootstrap(Widget Function() builder) async {
 void _setUpLogging() {
   Logger.root.level = Level.INFO;
   Logger.root.onRecord.listen((record) {
-    debugPrint('[${record.level.name}] ${record.loggerName}: ${record.message}');
+    debugPrint(
+        '[${record.level.name}] ${record.loggerName}: ${record.message}');
     // record.error/stackTrace were being silently dropped — every
     // runZonedGuarded catch (below) logs 'Uncaught error' with the real
     // exception attached, but nothing ever printed it, so the log line was
@@ -215,6 +223,17 @@ void _registerDependencies(AppPreferences preferences) {
     () => DjangoRecordsRepository(getIt<ApiClient>()),
   );
 
+  getIt.registerLazySingleton<VitalsRepository>(
+    () => DjangoVitalsRepository(
+      getIt<ApiClient>(),
+      currentUserId: () async => getIt<AuthBloc>().state.user?.id,
+    ),
+  );
+
+  getIt.registerLazySingleton<AccessRepository>(
+    () => DjangoAccessRepository(getIt<ApiClient>()),
+  );
+
   getIt.registerLazySingleton<CallRepository>(
     () => DjangoCallRepository(getIt<ApiClient>()),
   );
@@ -267,6 +286,14 @@ void _registerDependencies(AppPreferences preferences) {
     () => RecordsBloc(recordsRepository: getIt<RecordsRepository>()),
   );
 
+  getIt.registerFactory<VitalsBloc>(
+    () => VitalsBloc(vitalsRepository: getIt<VitalsRepository>()),
+  );
+
+  getIt.registerFactory<AccessRequestsBloc>(
+    () => AccessRequestsBloc(accessRepository: getIt<AccessRepository>()),
+  );
+
   // Parameterised: one detail Bloc per opened consultation, because the
   // record it loads is that consultation's.
   getIt.registerFactoryParam<RecordDetailBloc, Consultation, void>(
@@ -305,6 +332,10 @@ void _registerDependencies(AppPreferences preferences) {
 
   getIt.registerFactory<ProfileBloc>(
     () => ProfileBloc(profileRepository: getIt<ProfileRepository>()),
+  );
+
+  getIt.registerFactory<ChangePasswordBloc>(
+    () => ChangePasswordBloc(authRepository: getIt<AuthRepository>()),
   );
 
   getIt.registerFactory<NotificationsBloc>(

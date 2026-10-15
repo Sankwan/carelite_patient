@@ -1,6 +1,6 @@
 # CareLite patient app — project status
 
-Last reviewed 15 Oct 2026. `flutter analyze` clean, 328 tests passing; the
+Last reviewed 15 Oct 2026. `flutter analyze` clean, 346 tests passing; the
 live suite in `test_integration/` passes against the current backend.
 Application id `com.carelitehealth.patient`, app name "Carelite". The
 launcher icon comes from `assets/icon/carelite_patient_logo.png`; regenerate
@@ -33,9 +33,20 @@ The docs folder has three files:
 - Incoming calls: a clinician's call opens a ringing screen with Answer and
   Decline; Answer goes through the pre-call checklist if needed, then
   joins the existing call. Only while the app is open — PT-N4.
+- Change password: Profile → Change password, through
+  `POST /api/auth/password-change/`. "Forgot password" is not built —
+  blocked by PT-N2a (the reset link opens `localhost:4200`).
+- Vitals trend: Records → "Vitals trend" lists every reading newest-first
+  (`GET /api/patients/{id}/vitals/`).
+- Record access / consent: Profile → "Who can see my record" — approve,
+  decline or revoke a clinician's request; a GENERIC notification with an
+  `access_request_id` opens it directly from the bell.
 
-Next, in order: vitals trend on Records (PT-N11), consent requests
-(PT-N12), change password (PT-N2), then a patient-started conversation once PT-C10 lands.
+Next: a patient-started conversation once PT-C10 lands (the clinician's
+user UUID isn't exposed yet), then "forgot password" once PT-N2a is
+fixed. After that: phone/OTP sign-up (PT-N1) and push delivery for a
+closed app (PT-N4) are the two biggest remaining gaps — see
+`docs/BACKEND_REQUESTS_PATIENT.md` for the full list.
 
 ## Running it
 
@@ -95,15 +106,16 @@ Fresh backend setup: Python 3.12 venv, `pip install -r requirements.txt`,
 | Find Specialists | Specialty chips and search; lists nobody until a specialty is picked |
 | Clinician profile and booking | Scheduled (real slots) or on demand; named clinician or any available. A refused booking says why and offers other clinicians |
 | Appointments | Upcoming / Past, cancel with confirmation, Join call. After a cancel, other clinicians are offered |
-| Pre-call checklist and call | Ring, accept, end are real and polled. **No audio or video** — the screen says so. Declined, unanswered after 45 s, or connection lost: the patient is told and offered other clinicians or a retry |
-| Records | Consultation list; summary, notes, prescriptions, tests and results per record. The assigned lab or pharmacy shows address, hours, **Directions** and **Call** |
-| Notifications | List, unread badge, mark read / all read |
-| Profile | Account and medical details, sign out |
-| Messages | Says plainly that messaging does not exist |
+| Pre-call checklist and call | Ring, accept, end are real, polled, and pushed live over the realtime socket. Video opens via Daily once a key is configured. The patient can answer an incoming call (ringing screen, Answer/Decline), not just start one. Declined, unanswered after 45 s, or connection lost: the patient is told and offered other clinicians or a retry |
+| Records | Consultation list; summary, notes, prescriptions, tests and results per record. The assigned lab or pharmacy shows address, hours, **Directions** and **Call**. "Vitals trend" lists every reading newest-first |
+| Notifications | List, live unread badge, mark read / all read. An access-request notification opens "Who can see my record" directly |
+| Profile | Account and medical details, sign out (revokes the session server-side), change password, "Who can see my record" (approve/decline/revoke a clinician's access request) |
+| Messages | Inbox, threads, optimistic send, live-updating unread badge |
 
-Not built at all: payments, insurance, push notifications, in-person
-visits, rating a clinician, test consent, pharmacy pickup/delivery,
-reschedule, password reset. Each is in BACKEND_REQUESTS_PATIENT.md.
+Not built at all: payments, insurance, push notifications for a closed
+app, in-person visits, rating a clinician, test consent, pharmacy
+pickup/delivery, reschedule, "forgot password" (blocked by PT-N2a), phone
+sign-up. Each is in BACKEND_REQUESTS_PATIENT.md.
 
 ## How the app is put together
 
@@ -153,12 +165,14 @@ breaks the app.
   from the list row, so it cannot be opened from a link or a notification.
 - **`ANY` booking is synchronous:** it returns a booked appointment or a
   400. There is no "searching" state.
-- **Notifications are one row per channel** (`IN_APP`, `SMS`, `PUSH`). The
-  app keeps only `IN_APP` rows and counts the badge from the list, not from
-  `unread-count`.
+- **Notifications are one row per channel** (`IN_APP`, `SMS`, `PUSH`); the
+  app filters to `IN_APP` when reading the list. `unread-count` itself
+  now counts `IN_APP` only (PT-B1, fixed), so the app reads the cheap
+  endpoint directly again.
 - **Calls:** both sides must submit the four-item checklist before starting
-  or accepting. `join_token` is a stub. Ending a call twice returns 400 with
-  a bare-list body.
+  or accepting. `room_url` (Daily) is only set if `DAILY_API_KEY` is
+  configured — otherwise the call screen has no video, by design, not a
+  bug. Ending a call twice returns 400 with a bare-list body.
 - **Non-patient accounts are refused at sign-in** by the app
   (`DjangoAuthRepository._rejectNonPatient`), based on `role`.
 
@@ -169,30 +183,25 @@ Not waiting on anyone — these are the app's own.
 1. **Not release-ready on Android:** the release build is signed with the
    debug key, and the backend URL is plain `http`; a release build needs a
    signing key and an `https` URL.
-2. **Replacing an appointment is two requests, not one.** When the patient
-   books another clinician after a declined or unanswered call, the app
-   books the new appointment, then cancels the old one. If the cancel
-   fails the patient is told to cancel it by hand. PT-C9 asks the backend
-   to do both in one step.
-3. **Camera and microphone permissions are declared but unused** (no call
-   media yet). App stores question unused sensitive permissions.
-4. **Six packages are installed and never imported:** `local_auth`,
+2. **Six packages are installed and never imported:** `local_auth`,
    `google_maps_flutter`, `image_picker`, `file_picker`,
    `permission_handler`, `flutter_local_notifications`. They slow the build
    and two of them already forced build workarounds.
-5. **Three empty feature folders** (`booking`, `payments`,
+3. **Three empty feature folders** (`booking`, `payments`,
    `doctor_profile`) are left over from the first design.
-6. **The patient cannot answer a call the clinician starts.** The app only
-   starts calls; an incoming-call notification just opens Appointments.
-7. **Lists stop at 20 rows** (see above).
-8. **No crash reporting or analytics**, and no CI.
+4. **Lists stop at 20 rows** (see above) — appointments, notifications,
+   clinicians. Messages and access-requests have the same ceiling.
+5. **No crash reporting or analytics**, and no CI.
+6. **No live tests for push-while-closed or a WebSocket under a flaky
+   connection** beyond the backoff/reconnect unit tests — the realtime
+   client has never been exercised against a real dropped connection on
+   a device, only mocked ones.
 
 ## Suggested order of work
 
 1. Remove the unused packages and leftover folders.
-2. Let the patient answer an incoming call (accept / decline).
-3. Follow `next` on paginated lists.
-4. Release setup: signing key and an `https` backend URL.
-5. As backend items land, in the order given in BACKEND_REQUESTS_PATIENT.md:
-   names and emergency contact first (smallest, most visible), then phone
-   sign-in, then push.
+2. Follow `next` on paginated lists.
+3. Release setup: signing key and an `https` backend URL.
+4. As backend items land, in the order given in BACKEND_REQUESTS_PATIENT.md:
+   PT-C10 (clinician user UUID, unblocks patient-started conversations),
+   then PT-N2a ("forgot password"), then phone sign-up and push.

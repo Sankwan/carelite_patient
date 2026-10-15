@@ -47,6 +47,7 @@ dependencies:
   geocoding: ^5.0.0
   url_launcher: ^6.3.3
   web_socket_channel: ^3.0.3
+  daily_flutter: ^0.40.0
 
 dev_dependencies:
   flutter_test:

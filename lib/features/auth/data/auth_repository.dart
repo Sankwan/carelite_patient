@@ -38,4 +38,12 @@ abstract class AuthRepository {
   });
 
   Future<void> signOut();
+
+  /// Changes the signed-in user's password. The server checks
+  /// [oldPassword] itself and returns a field error if it's wrong — this
+  /// never trusts a client-side guess at whether it was right.
+  Future<Result<void>> changePassword({
+    required String oldPassword,
+    required String newPassword,
+  });
 }
