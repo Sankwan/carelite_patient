@@ -6,8 +6,10 @@ Where a request is the same change as one in the clinician document, it is
 marked "same as clinician Xn" and only the patient-side detail is added
 here — build it once.
 
-Checked against the backend source dated 9 Sep 2026 (9 local apps, 49
-routes) on 9 Oct 2026. IDs in this document start with `PT-`.
+Checked against `github.com/campofo/carelite` @ `main` on 15 Oct 2026
+(14 local apps — `vitals`, `access` and `messaging` have landed since the
+9 Oct check, plus a `channels`/`daphne` realtime layer). IDs in this
+document start with `PT-`.
 
 ## Contents
 
@@ -24,85 +26,69 @@ routes) on 9 Oct 2026. IDs in this document start with `PT-`.
 
 ## Summary and priority
 
-### Status on 15 Oct 2026 (backend at github.com/campofo/carelite, main)
+Size: S = under a day, M = a few days, L = a week or more. Status is as of
+15 Oct 2026, checked against `github.com/campofo/carelite` @ `main`.
 
-Delivered and used by the app: PT-B1 (unread-count), PT-C1 (names),
-PT-C3 (status/from/to filters), PT-C4 (`consultation_id`,
-`active_call_id`), PT-C9 (`replaces`), PT-N3 (logout), PT-N10 (messaging),
-PT-N5 (Daily rooms, when `DAILY_API_KEY` is set), plus the realtime socket
-`ws/realtime/`. Delivered, app work not started: PT-N2 (password change and
-reset), PT-N11 (vitals), PT-N12 (consent requests).
+**Since the 9 Oct review:** `vitals`, `access` (consent) and `messaging`
+landed as new apps, plus a `channels`/`daphne` realtime layer at
+`ws/realtime/`. The app now uses names, status/date filters, the richer
+appointment payload, one-step replace, logout, Daily video rooms,
+messaging and the realtime socket — see "Delivered" below for the exact
+list. Building against this version surfaced six new asks (PT-B3, C10,
+C11, C12, N2a, S1) and confirmed three more deliveries the app hasn't
+wired up yet (N2, N11, N12).
 
-Still open: PT-B2 — the clinician is notified of a booking, but the
-patient is still not notified when the clinician confirms or declines it.
-PT-C7 (cancel takes no reason), PT-N1 (OTP), PT-N4 (push is a logging
-stub, so a closed app never rings).
-
-New asks from integrating this version:
-
-| Pri | ID | Request | Size | Why |
+| Pri | ID | Request | Size | Status |
 |---|---|---|---|---|
-| P0 | PT-B3 | `demo.sqlite3` in the repo is behind the migrations (`duplicate column name: is_pregnant` on migrate) | S | A fresh clone cannot start without deleting it and re-seeding |
-| P1 | PT-C10 | Expose the clinician's **user** UUID on clinician and appointment responses | S | `POST /api/conversations/` needs `counterpart` (a user UUID); the patient only sees the ClinicianProfile int id, so a patient cannot start a conversation — only reply to one a clinician started |
-| P1 | PT-C11 | `?ordering=-created_at` (or a cursor) on conversation messages | S | Messages are oldest-first, 20 per page; the app reads `count` and fetches the last two pages to show the newest |
-| P2 | PT-C12 | Caller's full name in the INCOMING_CALL payload, and `appointment_id` | S | The body says "dr_adjei is calling"; the app has to fetch the call and the whole appointment list to show a real name |
-| P2 | PT-N2a | Password-reset link opens a mobile deep link, not `localhost:4200` | S | Reset email is unusable from the phone |
-| P3 | PT-S1 | WebSocket token in the query string ends up in server access logs | S | Prefer a short-lived ticket from an authenticated endpoint |
+| P0 | PT-B1 | `unread-count` counts each event once per channel | S | ✅ Done |
+| P0 | PT-B2 | Patient is not told when a booking is confirmed or cancelled | S | Open |
+| P0 | PT-B3 | `demo.sqlite3` in the repo is behind the migrations | S | **New** |
+| P1 | PT-C1 | Names on user, clinician and appointment responses | S | ✅ Done |
+| P1 | PT-C2 | Emergency contact on `PatientProfile` | S | Open |
+| P1 | PT-C3 | Filters and ordering on `GET /api/appointments/` | S | ✅ Done |
+| P1 | PT-C4 | `consultation_id` and `active_call_id` on appointments | S | ✅ Done |
+| P1 | PT-C5 | Clinician list: search, more fields, detail endpoint | S–M | Partial (full_name done) |
+| P1 | PT-C6 | Specialties list | S | Open |
+| P1 | PT-C7 | Cancel with a reason; reschedule | S–M | Open |
+| P1 | PT-C9 | Replace an appointment in one step | S | ✅ Done |
+| P1 | PT-C10 | Expose the clinician's **user** UUID on clinician/appointment responses | S | **New** |
+| P1 | PT-C11 | Ordering or a cursor on conversation messages | S | **New** |
+| P1 | PT-N1 | Phone sign-up and login with OTP | M | Open |
+| P1 | PT-N2 | Password reset and change password | M | Backend ready, app pending |
+| P1 | PT-N2a | Password-reset link opens a mobile deep link, not `localhost:4200` | S | **New** |
+| P1 | PT-N3 | Logout (refresh-token blacklist) | S | ✅ Done |
+| P2 | PT-C12 | Caller's full name and `appointment_id` in the INCOMING_CALL payload | S | **New** |
+| P2 | PT-N4 | Real push delivery (FCM) | M | Open |
+| P2 | PT-N5 | Real call media | M–L | ✅ Done (Daily, when `DAILY_API_KEY` set) |
+| P2 | PT-N6 | "All my prescriptions / tests" lists | S | Open |
+| P2 | PT-N7 | Rate a clinician | M | Open |
+| P2 | PT-N8 | Profile photo upload | S | Open |
+| P2 | PT-N9 | Insurance on `PatientProfile` | S–M | Open |
+| P2 | PT-N13 | Authenticated result-file download; PDF export | S–M | Open |
+| P2 | PT-L1 | Patient accepts or declines an ordered test | M | Open |
+| P2 | PT-L2 | Pickup or delivery for a prescription | M | Open |
+| P3 | PT-N10 | Messaging | L | ✅ Done |
+| P3 | PT-N11 | Vitals history | M | Backend ready, app pending |
+| P3 | PT-N12 | Record access / consent | M | Backend ready, app pending |
+| P3 | PT-P1 | Pay for a consultation, test, prescription | L | Open |
+| P3 | PT-P2 | Featured clinicians first | S | Open |
+| P3 | PT-S1 | WebSocket token travels in the query string (access-log exposure) | S | **New** |
+| P3 | PT-V1–V3 | In-person visits | M–L | Open |
 
-
-Size: S = under a day, M = a few days, L = a week or more.
-
-| Pri | ID | Request | Size | Same as clinician | Unblocks in the patient app |
-|---|---|---|---|---|---|
-| P0 | PT-B1 | `unread-count` counts each event once per channel | S | B3 | App works around it with a heavier request |
-| P0 | PT-B2 | Patient is not told when a booking is confirmed or cancelled | S | T1 | Patient has to keep opening Appointments |
-| P1 | PT-C1 | Names on user, clinician and appointment responses | S | C1 | Full name on Complete Profile; real doctor names |
-| P1 | PT-C2 | Emergency contact on `PatientProfile` | S | — | Complete Profile field that is not saved today |
-| P1 | PT-C3 | Filters and ordering on `GET /api/appointments/` | S | C3 | Upcoming / Past beyond 20 rows |
-| P1 | PT-C4 | `consultation_id` and `active_call_id` on appointments | S | C2 | Join Call; open the record from an appointment |
-| P1 | PT-C5 | Clinician list: search, more fields, detail endpoint | S–M | — | Find a Clinician, clinician profile |
-| P1 | PT-C6 | Specialties list | S | — | Specialist chips are hard-coded |
-| P1 | PT-C7 | Cancel with a reason; reschedule | S–M | — | Appointments |
-| P1 | PT-C9 | Replace an appointment in one step | S | — | Switching clinician after an unanswered call |
-| P1 | PT-N1 | Phone sign-up and login with OTP | M | — | "I don't have an email" path |
-| P1 | PT-N2 | Password reset and change password | M | N1 | No way to recover an account |
-| P1 | PT-N3 | Logout (refresh-token blacklist) | S | N2 | Sign out |
-| P2 | PT-N4 | Real push delivery (FCM) | M | — | Incoming call when the app is closed |
-| P2 | PT-N5 | Real call media | M–L | N5 | Audio and video |
-| P2 | PT-N6 | "All my prescriptions / tests" lists | S | — | Records without 4 calls per consultation |
-| P2 | PT-N7 | Rate a clinician | M | — | Ratings are admin-set today |
-| P2 | PT-N8 | Profile photo upload | S | — | Complete Profile, Profile |
-| P2 | PT-N9 | Insurance on `PatientProfile` | S–M | — | Profile, onboarding |
-| P2 | PT-N13 | Authenticated result-file download; PDF export | S–M | — | Records says "ask your clinician for a copy" |
-| P2 | PT-L1 | Patient accepts or declines an ordered test | M | L3 | Consent step |
-| P2 | PT-L2 | Pickup or delivery for a prescription | M | L4 | Pharmacy choice |
-| P3 | PT-N10 | Messaging | L | N7 | Messages tab |
-| P3 | PT-N11 | Vitals history | M | N3 | Records |
-| P3 | PT-N12 | Record access / consent | M | — | Who can see my record |
-| P3 | PT-P1 | Pay for a consultation, test, prescription | L | P1 | Everything paid |
-| P3 | PT-P2 | Featured clinicians first | S | P4 | "Featured" label |
-| P3 | PT-V1–V3 | In-person visits | M–L | — | "Close to me" filter |
-
-Suggested order: Part 0 → PT-C1 to C7 → PT-N1 to N3 → PT-N4, N5 → Part 3 →
-payments.
-
----
+Suggested order: PT-B2, B3 → C2, C6, C7 → C10, C11, C12 → N1, N2a, N4 →
+Part 3 → payments.
 
 ## Part 0 — Bugs and gaps in existing endpoints
 
-### PT-B1. `GET /api/notifications/unread-count/` over-counts
+### PT-B1. `GET /api/notifications/unread-count/` over-counts — ✅ Done
 
-Same as clinician **B3**. `notify()` writes one row per channel (`IN_APP`,
-`SMS`, `PUSH`), and the count includes all of them, so one incoming call
-counts as 3.
+Same as clinician **B3**. `notify()` wrote one row per channel (`IN_APP`,
+`SMS`, `PUSH`), and the count included all of them, so one incoming call
+counted as 3.
 
-- **Patient app today:** it no longer calls this endpoint. It fetches
-  `GET /api/notifications/?unread=true` and counts the `IN_APP` rows itself,
-  and filters the list the same way. That is correct but heavier, and it
-  undercounts past 20 unread (one page).
-- **Ask:** count `IN_APP` rows only. Ideally `GET /api/notifications/`
-  defaults to `channel=IN_APP` too. The app then goes back to the cheap
-  endpoint.
+- **Fixed:** the endpoint now counts `IN_APP` rows only. The app has
+  switched back from the heavier `?unread=true` + client-side filter
+  workaround to calling this endpoint directly.
 
 ### PT-B2. The patient is not told what happens to their booking
 
@@ -116,25 +102,38 @@ prescription, or assigns a lab or pharmacy.
   The two that matter most now are `APPOINTMENT_CONFIRMED` and
   `APPOINTMENT_CANCELLED`.
 
+### PT-B3. The committed `demo.sqlite3` cannot be migrated — new, P0
+
+A fresh clone's `demo.sqlite3` is behind the current migrations:
+`python manage.py migrate` fails with
+`duplicate column name: is_pregnant` (and similar) rather than applying
+cleanly. The only way to get a runnable database today is to delete it and
+run `migrate` + `seed_demo` from empty, which also means the fixed
+clinician/patient usernames referenced in onboarding docs and sample
+curl commands may not match what gets seeded.
+
+- **Ask:** either drop the checked-in `demo.sqlite3` from the repo (a
+  README step to `migrate && seed_demo` is enough, and avoids a stale
+  binary file in git), or regenerate and recommit it after every
+  migration that touches it. Please also confirm the exact `seed_demo`
+  usernames/password so onboarding docs across both apps can cite one
+  source of truth instead of each rediscovering them.
+
 ---
 
 ## Part 1 — Small changes to existing endpoints
 
-### PT-C1. Names
+### PT-C1. Names — ✅ Done
 
-Same as clinician **C1**. `first_name` and `last_name` already exist on
-`AbstractUser`; no serializer exposes them.
+Same as clinician **C1**. `first_name` and `last_name` already existed on
+`AbstractUser`; no serializer exposed them.
 
-- **Ask:**
-  - `UserSerializer` and `RegisterSerializer`: add `first_name`,
-    `last_name` (writable), and a read-only `full_name`.
-  - `PublicClinicianSerializer` and the clinician nested in
-    `AppointmentSerializer`: add `full_name`.
-  - Consultation list: add `clinician_name` next to `clinician_username`.
-- **Why:** Complete Profile collects a full name and has nowhere to send
-  it. Clinicians appear as "Dr. Adjei" only because the app reformats
-  `dr_adjei`. For accounts registered through the app, `username` is the
-  person's email, so that is what other users would see.
+- **Delivered:** `UserSerializer`/`RegisterSerializer` expose writable
+  `first_name`/`last_name` and a read-only `full_name`;
+  `PublicClinicianSerializer` and the clinician nested in
+  `AppointmentSerializer` expose `full_name`; consultations expose
+  `clinician_name`. The app formats a clinician with a real name as
+  "Dr. First Last" and saves the patient's name back on profile save.
 
 ### PT-C2. Emergency contact
 
@@ -144,31 +143,36 @@ Same as clinician **C1**. `first_name` and `last_name` already exist on
   `emergency_contact_relationship` on `PatientProfile`, patient-writable.
   Leave `emergency_flag` as it is.
 
-### PT-C3. Filters on `GET /api/appointments/`
+### PT-C3. Filters on `GET /api/appointments/` — ✅ Done
 
-Same as clinician **C3**. The patient app reads one page of 20 and splits
-Upcoming / Past on the phone, so a patient's 21st appointment is not shown.
+Same as clinician **C3**. The patient app used to read one page of 20 and
+split Upcoming / Past on the phone, so a patient's 21st appointment never
+showed.
 
-- **Ask:** `?status=` (comma list), `?from=&to=`, `?ordering=`; default
-  ordering `-created_at`.
+- **Delivered:** `?status=` (comma list) and `?from=&to=` on
+  `scheduled_at`/`created_at`. No `?ordering=` yet — default is still
+  whatever the queryset's natural order is; worth confirming it is
+  `-created_at` so "most recent first" doesn't depend on insertion order.
 
-### PT-C4. More fields on the appointment response
+### PT-C4. More fields on the appointment response — ✅ Done
 
 Same as clinician **C2**: `consultation_id` (null until started) and
 `active_call_id` (id of a `RINGING`/`ACCEPTED` call, else null).
 
-- **Why, patient side:** when the clinician rings and the patient missed
-  the notification, the app has no way to ask "is there a live call for
-  this appointment?". And from a past appointment there is no link to its
-  consultation record.
+- **Delivered**, plus `patient_id`, `patient_name` and
+  `cancellation_reason` on the same response, which weren't asked for
+  but close real gaps (the replaced-appointment toast reads
+  `cancellation_reason`).
 
-### PT-C5. Clinician directory
+### PT-C5. Clinician directory — partial (full_name delivered)
 
 - **Today:** `GET /api/accounts/clinicians/` supports `?specialty=`
   (contains) and `?online=true`, ordered `-rating, username`. Each row is
-  `id, username, specialty, bio, years_experience, consultation_fee,
-  is_online, rating`. There is no detail endpoint.
-- **Ask:**
+  `id, username, full_name, specialty, bio, years_experience,
+  consultation_fee, is_online, rating` (`full_name` landed with **C1**).
+  There is still no `?search=`, no detail endpoint, and no user UUID — see
+  **C10** below.
+- **Ask, still open:**
   - `?search=` across name, specialty and bio.
   - `?ordering=rating | -rating | consultation_fee | -consultation_fee`.
   - `?is_general=true|false` (or a `category` field) so "Find a Clinician"
@@ -204,16 +208,63 @@ Same as clinician **C2**: `consultation_id` (null until started) and
     the clinician's slots, sets the status back to `REQUESTED`, notifies
     the clinician.
 
-### PT-C9. Replace an appointment in one step
+### PT-C9. Replace an appointment in one step — ✅ Done
 
-- **Today:** when a clinician declines or does not answer and the patient
-  books another, the app sends two requests: `POST /api/appointments/`,
-  then `POST /api/appointments/{old}/cancel/`. If the second fails, the
-  patient has two appointments.
-- **Ask:** an optional `replaces` field on `POST /api/appointments/`
-  (`{"replaces": 32, ...}`). In one transaction: create the new
-  appointment, cancel the old one with reason `REPLACED`, end any ringing
-  call on it, and notify the first clinician. Return the new appointment.
+- **Was:** when a clinician declined or did not answer and the patient
+  booked another, the app sent two requests: `POST /api/appointments/`,
+  then `POST /api/appointments/{old}/cancel/`. If the second failed, the
+  patient had two appointments.
+- **Delivered:** an optional `replaces` field on `POST /api/appointments/`
+  (`{"replaces": 32, ...}`), atomic — creates the new appointment,
+  cancels the old one with reason `REPLACED`, ends any ringing call on
+  it, and notifies the first clinician. The app sends this field and no
+  longer cancels client-side.
+
+### PT-C10. Expose the clinician's **user** UUID — new, P1
+
+`POST /api/conversations/` (from **N10**, now live) takes `counterpart`,
+a **user** UUID. The clinician directory and the appointment's nested
+clinician both only expose `ClinicianProfile.id` (an int) — there is no
+field anywhere a patient-facing response that carries the clinician's
+`User.id`.
+
+- **Effect today:** a patient can only reply inside a conversation a
+  clinician already started. They cannot start one themselves, because
+  there is nothing to pass as `counterpart`.
+- **Ask:** add a `user_id` (UUID) field to `PublicClinicianSerializer`
+  and `ClinicianBriefSerializer` (the one nested in
+  `AppointmentSerializer`). Same shape clinicians already get for a
+  patient's `patient_id` on the appointment — this is the mirror of that.
+
+### PT-C11. Ordering (or a cursor) on conversation messages — new, P1
+
+`GET /api/conversations/{id}/messages/` returns 20 per page, oldest
+first, with no `?ordering=`. To show the newest messages when a thread is
+opened, the app reads `count` from page 1, works out the last page, and
+fetches the last two pages (not one, in case the newest message landed on
+a fresh page by itself). That is three requests to open one thread.
+
+- **Ask:** `?ordering=-created_at` (then the app reads page 1 and
+  reverses it for display), or a `before`/`after` cursor so "give me the
+  latest N" is a single request either way.
+
+### PT-C12. Caller's name and the appointment id on INCOMING_CALL — new, P2
+
+```python
+body=f"{request.user.get_username()} is calling ({call.get_mode_display()}).",
+payload={"call_id": call.id, "room_name": call.room_name, "mode": call.mode},
+```
+
+The body uses `get_username()`, which for an app-registered patient is an
+email address, and for a clinician is `dr_adjei`-style — never the real
+name **C1** added elsewhere. The payload also omits `appointment_id`, so
+the app that just received a ring has to call `GET /api/calls/{id}/`
+*and* list every appointment to find the matching one and its clinician's
+real name, before it can show who is calling.
+
+- **Ask:** use `get_full_name() or get_username()` in the body (matches
+  how **C1** is applied everywhere else), and add `appointment_id` to the
+  payload.
 
 ### PT-C8. Smaller ones
 
@@ -257,20 +308,49 @@ Same as clinician **C2**: `consultation_id` (null until started) and
   visible concept. The SMS channel is a logging stub today; this needs the
   real provider (Hubtel or Twilio).
 
-### PT-N2. Password reset and change password
+### PT-N2. Password reset and change password — backend ready, app pending
 
 Same as clinician **N1**; one implementation serves both apps.
 
-### PT-N3. Logout
+- **Delivered:** `POST /api/auth/password-reset/`,
+  `/password-reset/confirm/`, `/password-change/`. Not wired up in the
+  patient app yet — next on the list after this review.
 
-Same as clinician **N2**. The app deletes its tokens locally; the refresh
-token stays valid on the server.
+### PT-N2a. Password-reset link is not reachable from a phone — new, P1
+
+The reset email's link points at `FRONTEND_PASSWORD_RESET_URL`, which is
+set to `http://localhost:4200` — a web dev server, not anything a phone
+can open. A patient who requests a reset on their phone gets an email
+they cannot act on from the device they're using.
+
+- **Ask:** either a deep link the apps can register for
+  (`carelite://reset-password?token=...`), or a hosted web page at a real
+  domain that itself offers "open in the app" — either way,
+  `localhost:4200` cannot be what ships.
+
+### PT-N3. Logout — ✅ Done
+
+Same as clinician **N2**. The app used to delete its tokens locally while
+the refresh token stayed valid on the server.
+
+- **Delivered:** `POST /api/auth/logout/` `{"refresh": "..."}` blacklists
+  the token and clears the user's device tokens. The app now calls it on
+  sign-out (best-effort — a local clear still happens even if the
+  request fails, so being offline never traps someone in a signed-in
+  state). Verified live: refreshing a blacklisted token now returns 401
+  `token_not_valid`.
 
 ### PT-N4. Real push delivery
 
 - **Today:** `/api/devices/` stores tokens, but `_deliver_push` in
   `notifications/channels.py` only logs. The patient app does not register
   a token yet.
+- **Narrower than before:** the realtime socket (`ws/realtime/`, see
+  **PT-S1**) now covers ringing, call status and message/notification
+  badges while the app is **open** — a patient who answers can accept or
+  decline the call live. What push still blocks is purely "the app is
+  closed or backgrounded": no ring, no badge, nothing, until it's
+  reopened.
 - **Ask:** send through FCM (which also covers APNs). For `INCOMING_CALL`
   send a **data-only, high-priority** message with `call_id`,
   `appointment_id`, `caller_name`, so the phone can show a ringing screen
@@ -278,12 +358,35 @@ token stays valid on the server.
 - **App side:** needs a Firebase project from the product owner, then
   `firebase_messaging` and token registration at login.
 
-### PT-N5. Real call media
+### PT-S1. WebSocket token travels in the query string — new, P3
 
-Same as clinician **N5**. `join_token` is `"stub-token-<room>"`. Ring,
-accept, decline and end are real; nothing carries audio or video. Please
-pick the provider (LiveKit, Agora, Twilio, Daily) — it decides which SDK
-both apps add.
+`ws/realtime/?token=<access>` is how both apps authenticate the socket
+(browsers cannot set a header on the WebSocket handshake, so this is a
+reasonable choice — flagging it as a trade-off to confirm, not a bug).
+The access token then sits in plain text in Daphne's request logs, any
+reverse proxy's access log, and browser devtools history for the lifetime
+of log retention — worse than a header, which proxies don't log by
+default.
+
+- **Ask, not urgent:** consider a short-lived one-time ticket instead —
+  an authenticated `POST /api/auth/ws-ticket/` returning a token good for
+  one connection attempt within, say, 10 seconds — so what ends up in
+  logs is useless after the handshake completes. Low priority: the
+  access token already has a short lifetime and this is defense in depth,
+  not an open hole.
+
+### PT-N5. Real call media — ✅ Done, with a gap
+
+Same as clinician **N5**. `join_token` used to be `"stub-token-<room>"`.
+
+- **Delivered:** Daily.co rooms. `CallSessionSerializer` nests a `room`
+  object with `room_url` when `DAILY_API_KEY` is configured; the app
+  opens it in-browser once a call is accepted ("Join video"). Ring,
+  accept, decline and end were already real.
+- **Gap:** without `DAILY_API_KEY` set, `room_url` stays null and the
+  call screen can only say "video is not set up on the server yet" —
+  please confirm the key is set in every environment the app will be
+  demoed or tested against, since this is otherwise silent.
 
 ### PT-N6. "Everything of mine" lists
 
@@ -322,22 +425,37 @@ both apps add.
   `GET /api/insurers/` so the private-insurer list is not hard-coded
   (NHIS as the one public entry).
 
-### PT-N10. Messaging
+### PT-N10. Messaging — ✅ Done
 
-Same as clinician **N7**. The Messages tab is an honest stub in both apps.
+Same as clinician **N7**. The Messages tab used to be an honest stub in
+both apps.
 
-### PT-N11. Vitals history
+- **Delivered:** a `messaging` app — `GET/POST /api/conversations/`,
+  `GET/POST /api/conversations/{id}/messages/`,
+  `GET /api/conversations/unread-count/`, gated on a shared appointment
+  (`_relationship_exists`). New messages also fire a `NEW_MESSAGE`
+  notification and a `message` event on the realtime socket. The app's
+  inbox, threads and unread badge are all built on this — see **C10**
+  and **C11** for the two rough edges found while building it.
 
-Same model as clinician **N3**. Patient side:
-`GET /api/accounts/me/vitals/` (read-only list, newest first) for a trend
-on Records.
+### PT-N11. Vitals history — backend ready, app pending
 
-### PT-N12. Record access / consent
+Same model as clinician **N3**.
 
-An `access` app (access requests, patient approve/revoke) was seen on a
-newer commit of the repository but is not in this checkout's
-`INSTALLED_APPS`. If it has landed, please share the commit and its
-endpoints; the patient app would add a "Who can see my record" screen.
+- **Delivered:** `vitals` app —
+  `GET/POST /api/consultations/{id}/vitals/` and
+  `GET /api/patients/{id}/vitals/` (a patient may read their own trend).
+  Not wired up in the app yet; next after password change/reset.
+
+### PT-N12. Record access / consent — backend ready, app pending
+
+- **Delivered:** an `access` app —
+  `GET/POST /api/access-requests/`,
+  `POST /api/access-requests/{id}/approve|decline|revoke/`,
+  `GET /api/patients/`, `GET /api/patients/{id}/`. Approving/declining
+  raises a `GENERIC` notification with `payload.access_request_id`. Not
+  wired up in the app yet — it would add a "Who can see my record" screen
+  reading this list and calling the action endpoint.
 
 ### PT-N13. Result files and PDF export
 
@@ -471,15 +589,18 @@ Not built; every appointment is implicitly virtual. Full reasoning is in
 
 ## Part 6 — Notifications the patient should receive
 
-Same mechanism as clinician **T1**. Types the patient app would handle,
-with the payload it needs to open the right screen:
+Same mechanism as clinician **T1**, now with a delivery half that works:
+every `notify()` call also pushes over `ws/realtime/` to whichever device
+has it open (`push_to_user`), so a type that exists reaches the app
+immediately rather than waiting for the next poll. Types the patient app
+would handle, with the payload it needs to open the right screen:
 
 | Type | When | Payload |
 |---|---|---|
 | `APPOINTMENT_CONFIRMED` | clinician confirms | `appointment_id` |
 | `APPOINTMENT_CANCELLED` | clinician cancels | `appointment_id`, `reason` |
 | `APPOINTMENT_REMINDER` | 15 min before a scheduled time | `appointment_id` |
-| `INCOMING_CALL` (exists) | clinician rings | `call_id`, `appointment_id` |
+| `INCOMING_CALL` (exists) | clinician rings | `call_id`, `appointment_id`¹ |
 | `CALL_MISSED` | call not answered | `appointment_id` |
 | `SUMMARY_READY` | consultation completed | `consultation_id` |
 | `TEST_ORDERED` | clinician orders a test | `investigation_id`, `consultation_id` |
@@ -489,6 +610,10 @@ with the payload it needs to open the right screen:
 | `PRESCRIPTION_STATUS` | ready / out for delivery / delivered | `prescription_id`, `status` |
 | `REFERRAL_CREATED` | clinician refers the patient | `referral_id`, `consultation_id` |
 | `PAYMENT` (exists, unused) | payment succeeded / failed / refunded | `payment_id` |
+| `NEW_MESSAGE` (exists) | a message arrives | `conversation_id` |
+| `GENERIC` (exists) | e.g. an access request | `access_request_id` or type-specific |
+
+¹ Wanted, not yet sent — see **PT-C12**.
 
 Unknown types fall back to a generic row in the app, so new ones can be
 added without an app release. Please always include `consultation_id`
@@ -501,25 +626,35 @@ those through their consultation until **PT-N6** exists.
 
 In use and working:
 
-- Auth: `POST /api/auth/token/`, `/token/refresh/`;
-  `POST /api/accounts/register/`; `GET/PATCH /api/accounts/me/`
+- Auth: `POST /api/auth/token/`, `/token/refresh/`,
+  `/api/auth/logout/`; `POST /api/accounts/register/`;
+  `GET/PATCH /api/accounts/me/`
 - Profile: `GET/PATCH /api/accounts/me/patient-profile/`
   (`date_of_birth`, `sex`, `blood_group`)
 - Clinicians: `GET /api/accounts/clinicians/` (`?specialty=`,
   `?online=true`); `GET …/{id}/slots/`
-- Appointments: `GET/POST /api/appointments/`; `POST …/{id}/cancel/`;
-  `GET/POST …/{id}/precall/`; `POST …/{id}/call/`
-- Calls: `GET /api/calls/{id}/`; `POST …/end/`
+- Appointments: `GET/POST /api/appointments/` (`?status=`, `?from=&to=`,
+  `replaces`); `POST …/{id}/cancel/`; `GET/POST …/{id}/precall/`;
+  `POST …/{id}/call/`
+- Calls: `GET /api/calls/{id}/`; `POST …/accept/`, `/decline/`, `/end/`
 - Records: `GET /api/consultations/`, `…/{id}/`, `…/{id}/summary/`,
   `…/notes/`, `…/prescriptions/`, `…/investigations/`
 - Facilities: `GET /api/facilities/`, `POST /api/match/`
 - Notifications: `GET /api/notifications/` (`?unread=true`),
-  `POST …/{id}/read/`, `POST …/read-all/`
+  `GET /api/notifications/unread-count/`, `POST …/{id}/read/`,
+  `POST …/read-all/`
+- Messaging: `GET/POST /api/conversations/`,
+  `GET/POST /api/conversations/{id}/messages/`,
+  `GET /api/conversations/unread-count/`
+- Realtime: `ws/realtime/?token=<access>` — one socket per session,
+  reconnects with backoff, re-authenticates on close code 4001
 
-Exists but not used by the patient app: `/api/notifications/unread-count/`
-(see **PT-B1**), `/api/devices/` (waiting on Firebase), `/api/appointments/{id}/location/`, `/api/auth/token/verify/`,
-`/api/calls/{id}/accept/` and `/decline/` (the patient app can start a call
-but cannot yet answer one the clinician starts).
+Exists but not used by the patient app yet: `/api/auth/password-reset/`,
+`/password-reset/confirm/`, `/password-change/` (**PT-N2**);
+`/api/patients/{id}/vitals/` (**PT-N11**); `/api/access-requests/`
+and `/api/patients/` (**PT-N12**); `/api/devices/` (waiting on Firebase,
+**PT-N4**); `/api/appointments/{id}/location/`;
+`/api/auth/token/verify/`.
 
 Things the app relies on that are easy to break:
 
