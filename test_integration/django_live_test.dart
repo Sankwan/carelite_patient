@@ -17,6 +17,7 @@ import 'package:carelite_app/features/home/domain/appointment.dart';
 import 'package:carelite_app/features/home/domain/provider.dart';
 import 'package:carelite_app/features/medical_records/data/django_records_repository.dart';
 import 'package:carelite_app/features/medical_records/domain/consultation.dart';
+import 'package:carelite_app/features/messages/data/django_messaging_repository.dart';
 import 'package:carelite_app/features/notifications/data/django_notification_repository.dart';
 import 'package:carelite_app/features/profile/data/django_profile_repository.dart';
 import 'package:carelite_app/features/profile/domain/patient_profile.dart';
@@ -90,7 +91,8 @@ void main() {
     () async {
       final tokenStore = _FakeTokenStore();
       final apiClient = ApiClient(tokenStore: tokenStore);
-      var auth = DjangoAuthRepository(client: apiClient, tokenStore: tokenStore);
+      var auth =
+          DjangoAuthRepository(client: apiClient, tokenStore: tokenStore);
       addTearDown(() async {
         await auth.dispose();
         await apiClient.dispose();
@@ -167,7 +169,8 @@ void main() {
       final clinicians =
           cliniciansResult.when(ok: (list) => list, err: (f) => throw f);
       expect(clinicians, isNotEmpty, reason: 'seed_demo must have run');
-      expect(clinicians.every((p) => p.rating == null || p.rating! <= 5), isTrue);
+      expect(
+          clinicians.every((p) => p.rating == null || p.rating! <= 5), isTrue);
 
       // --- Find a Clinician, through the production repository ---------
       final clinicianRepo = DjangoClinicianRepository(apiClient);
@@ -188,7 +191,8 @@ void main() {
       final bySpecialty = await clinicianRepo.search(
         ClinicianFilter(specialty: all.first.specialty ?? ''),
       );
-      final narrowed = bySpecialty.when(ok: (list) => list, err: (f) => throw f);
+      final narrowed =
+          bySpecialty.when(ok: (list) => list, err: (f) => throw f);
       expect(narrowed, isNotEmpty);
       expect(narrowed.length, lessThanOrEqualTo(all.length));
 
@@ -224,8 +228,8 @@ void main() {
       );
       final bookedAppointment =
           bookResult.when(ok: (a) => a, err: (f) => throw f);
-      expect(bookedAppointment.provider.displayName,
-          clinicians.first.displayName);
+      expect(
+          bookedAppointment.provider.displayName, clinicians.first.displayName);
 
       // A SCHEDULED booking with no time must surface the server's own
       // field error, not a generic "something went wrong".
@@ -348,8 +352,7 @@ void main() {
       // raw username after the formatUsername change) and not assumed to
       // match `clinicians.first` from earlier in this test, which any
       // rating tie could reorder.
-      final clinicianListResponse =
-          await apiClient.get(ApiContract.clinicians);
+      final clinicianListResponse = await apiClient.get(ApiContract.clinicians);
       final clinicianRow = (clinicianListResponse.data['results'] as List)
           .cast<Map<String, dynamic>>()
           .firstWhere((row) => row['username'] == 'dr_adjei');
@@ -390,8 +393,10 @@ void main() {
       final patientAck = await callRepo.submitPrecallChecklist(
         callAppointmentId,
         const PrecallChecklist(
-          quietLocation: true, cameraMicOk: true,
-          connectionOk: true, documentsReady: true,
+          quietLocation: true,
+          cameraMicOk: true,
+          connectionOk: true,
+          documentsReady: true,
         ),
       );
       final gateAfterPatient =
@@ -408,7 +413,9 @@ void main() {
       expect(ringingCall.status, CallStatus.ringing);
       // A Daily room exists only when the server has DAILY_API_KEY set; an
       // empty room_url must read as "no video", never as a broken link.
-      expect(ringingCall.roomUrl == null || ringingCall.roomUrl!.startsWith('https://'),
+      expect(
+          ringingCall.roomUrl == null ||
+              ringingCall.roomUrl!.startsWith('https://'),
           isTrue);
 
       // The clinician cannot accept before completing their OWN checklist —
@@ -425,8 +432,10 @@ void main() {
       await clinicianCallRepo.submitPrecallChecklist(
         callAppointmentId,
         const PrecallChecklist(
-          quietLocation: true, cameraMicOk: true,
-          connectionOk: true, documentsReady: true,
+          quietLocation: true,
+          cameraMicOk: true,
+          connectionOk: true,
+          documentsReady: true,
         ),
       );
 
@@ -455,6 +464,45 @@ void main() {
         secondEnd.when(ok: (_) => null, err: (f) => f.message),
         contains('already ended'),
       );
+
+      // --- messaging, through the production repository -----------------
+      //
+      // The patient cannot start a conversation yet: the clinician's user
+      // UUID is not exposed to them (PT-C10). The clinician starts it,
+      // which the shared appointment above allows.
+      final startResponse = await clinicianApiClient.post(
+        ApiContract.conversations,
+        data: {'counterpart': registeredUser.id},
+      );
+      expect(startResponse.statusCode, 201);
+      final conversationId = '${startResponse.data['id']}';
+      await clinicianApiClient.post(
+        ApiContract.conversationMessages(conversationId),
+        data: {'body': 'Please bring your lab results.'},
+      );
+
+      final messagingRepo = DjangoMessagingRepository(
+        apiClient,
+        currentUserId: () async => registeredUser.id,
+      );
+      final unreadBefore = await messagingRepo.fetchUnreadCount();
+      expect(unreadBefore.when(ok: (n) => n, err: (f) => throw f), 1);
+
+      final inbox = await messagingRepo.fetchConversations();
+      final conversation = inbox.when(ok: (l) => l.single, err: (f) => throw f);
+      expect(conversation.clinicianName, startsWith('Dr. '));
+      expect(conversation.lastMessageIsMine, isFalse);
+
+      final reply = await messagingRepo.send(conversationId, 'Will do.');
+      expect(reply.when(ok: (m) => m.mine, err: (f) => throw f), isTrue);
+
+      final thread = await messagingRepo.fetchRecentMessages(conversationId);
+      expect(thread.when(ok: (l) => l.map((m) => m.body), err: (f) => throw f),
+          ['Please bring your lab results.', 'Will do.']);
+
+      await messagingRepo.markRead(conversationId);
+      final unreadAfter = await messagingRepo.fetchUnreadCount();
+      expect(unreadAfter.when(ok: (n) => n, err: (f) => throw f), 0);
     },
     timeout: const Timeout(Duration(minutes: 2)),
   );

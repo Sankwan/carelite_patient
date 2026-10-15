@@ -86,6 +86,14 @@ abstract final class ApiContract {
   static const String notificationsReadAll = '/api/notifications/read-all/';
   static String notificationRead(String id) => '/api/notifications/$id/read/';
 
+  // --- Messaging (patient <-> clinician threads) -------------------------
+  static const String conversations = '/api/conversations/';
+  static const String conversationsUnreadCount =
+      '/api/conversations/unread-count/';
+  static String conversationMessages(String id) =>
+      '/api/conversations/$id/messages/';
+  static String conversationRead(String id) => '/api/conversations/$id/read/';
+
   // --- Medical records (consultations + prescriptions + investigations) -
   //
   // Every clinical artefact is consultation-scoped: there is no

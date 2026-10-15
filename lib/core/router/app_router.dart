@@ -25,6 +25,8 @@ import '../../features/location/presentation/pages/enable_location_page.dart';
 import '../../features/medical_records/presentation/bloc/records_bloc.dart';
 import '../../features/medical_records/presentation/bloc/records_event.dart';
 import '../../features/medical_records/presentation/pages/medical_records_page.dart';
+import '../../features/messages/presentation/bloc/conversations_bloc.dart';
+import '../../features/messages/presentation/bloc/conversations_event.dart';
 import '../../features/messages/presentation/pages/messages_page.dart';
 import '../../features/notifications/presentation/bloc/notifications_bloc.dart';
 import '../../features/notifications/presentation/bloc/notifications_event.dart';
@@ -216,7 +218,11 @@ GoRouter buildAppRouter(AuthBloc authBloc, AppPreferences preferences) {
           StatefulShellBranch(routes: [
             GoRoute(
               path: AppRoutes.messages,
-              builder: (context, state) => const MessagesPage(),
+              builder: (context, state) => BlocProvider<ConversationsBloc>(
+                create: (_) =>
+                    getIt<ConversationsBloc>()..add(const ConversationsStarted()),
+                child: const MessagesPage(),
+              ),
             ),
           ]),
           StatefulShellBranch(routes: [

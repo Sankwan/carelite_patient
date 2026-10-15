@@ -36,6 +36,10 @@ import 'features/medical_records/data/django_records_repository.dart';
 import 'features/medical_records/data/records_repository.dart';
 import 'features/medical_records/domain/consultation.dart';
 import 'features/medical_records/presentation/bloc/records_bloc.dart';
+import 'features/messages/data/django_messaging_repository.dart';
+import 'features/messages/data/messaging_repository.dart';
+import 'features/messages/presentation/bloc/conversations_bloc.dart';
+import 'features/messages/presentation/bloc/thread_bloc.dart';
 import 'features/notifications/data/django_notification_repository.dart';
 import 'features/notifications/data/notification_repository.dart';
 import 'features/notifications/presentation/bloc/notifications_bloc.dart';
@@ -152,6 +156,21 @@ void _registerDependencies(AppPreferences preferences) {
   getIt.registerLazySingleton<AppointmentsChanged>(AppointmentsChanged.new);
   getIt.registerLazySingleton<ExternalLauncher>(
     () => const UrlExternalLauncher(),
+  );
+  getIt.registerLazySingleton<MessagingRepository>(
+    () => DjangoMessagingRepository(
+      getIt<ApiClient>(),
+      currentUserId: () async => getIt<AuthBloc>().state.user?.id,
+    ),
+  );
+  getIt.registerFactory<ConversationsBloc>(
+    () => ConversationsBloc(messagingRepository: getIt<MessagingRepository>()),
+  );
+  getIt.registerFactoryParam<ThreadBloc, String, void>(
+    (conversationId, _) => ThreadBloc(
+      messagingRepository: getIt<MessagingRepository>(),
+      conversationId: conversationId,
+    ),
   );
   getIt.registerLazySingleton<ClinicianRepository>(
     () => DjangoClinicianRepository(getIt<ApiClient>()),
