@@ -22,6 +22,7 @@ import 'features/auth/presentation/bloc/auth_event.dart';
 import 'features/calls/data/call_repository.dart';
 import 'features/calls/data/django_call_repository.dart';
 import 'features/calls/presentation/bloc/call_bloc.dart';
+import 'features/calls/presentation/bloc/incoming_call_bloc.dart';
 import 'features/calls/presentation/bloc/precall_bloc.dart';
 import 'features/find_clinician/data/clinician_repository.dart';
 import 'features/find_clinician/data/django_clinician_repository.dart';
@@ -288,6 +289,16 @@ void _registerDependencies(AppPreferences preferences) {
     (appointmentId, _) => CallBloc(
       callRepository: getIt<CallRepository>(),
       appointmentId: appointmentId,
+      callChanged: live().callChanges,
+    ),
+  );
+
+  // Parameterised on the call id: one ringing call per screen.
+  getIt.registerFactoryParam<IncomingCallBloc, String, void>(
+    (callId, _) => IncomingCallBloc(
+      callRepository: getIt<CallRepository>(),
+      appointmentRepository: getIt<AppointmentRepository>(),
+      callId: callId,
       callChanged: live().callChanges,
     ),
   );

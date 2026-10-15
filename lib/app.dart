@@ -12,7 +12,7 @@ import 'features/auth/presentation/bloc/auth_state.dart';
 import 'features/messages/domain/open_conversation.dart';
 import 'features/messages/presentation/bloc/messages_badge_bloc.dart';
 import 'features/messages/presentation/bloc/messages_badge_event.dart';
-import 'features/notifications/presentation/widgets/live_notification_toasts.dart';
+import 'features/notifications/presentation/widgets/live_notification_listener.dart';
 
 /// Root widget. `AuthBloc` is provided once, above the router, because the
 /// router's `redirect` and every screen below it need to read the same
@@ -62,7 +62,7 @@ class App extends StatelessWidget {
                 fontFamily: 'Inter',
               ),
               routerConfig: router,
-              builder: (context, child) => LiveNotificationToasts(
+              builder: (context, child) => LiveNotificationListener(
                 events: getIt<RealtimeClient>().events,
                 navigatorKey: router.routerDelegate.navigatorKey,
                 shouldShow: (notification) =>

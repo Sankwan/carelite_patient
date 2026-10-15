@@ -533,6 +533,42 @@ void main() {
       final live = await pushedNotification;
       expect(live.type, 'NEW_MESSAGE');
       expect(live.payload['conversation_id'].toString(), conversationId);
+
+      // --- the clinician rings the patient, who answers -----------------
+      final ringing = realtime.events
+          .where((e) =>
+              e is RealtimeNotification && e.type == 'INCOMING_CALL')
+          .cast<RealtimeNotification>()
+          .first
+          .timeout(const Duration(seconds: 10));
+      final clinicianCall = await clinicianCallRepo.initiateCall(
+        callAppointmentId,
+        CallMode.video,
+      );
+      final rungCall = clinicianCall.when(ok: (c) => c, err: (f) => throw f);
+      final incoming = await ringing;
+      expect(incoming.payload['call_id'].toString(), rungCall.id);
+
+      final statusPush = realtime.events
+          .where((e) => e is RealtimeCallChanged)
+          .cast<RealtimeCallChanged>()
+          .first
+          .timeout(const Duration(seconds: 10));
+      final answered = await callRepo.acceptCall(rungCall.id);
+      expect(answered.when(ok: (c) => c.status, err: (f) => throw f),
+          CallStatus.accepted);
+      expect((await statusPush).status, 'ACCEPTED');
+      await callRepo.endCall(rungCall.id);
+
+      // A second ring, declined this time.
+      final secondRing = await clinicianCallRepo.initiateCall(
+        callAppointmentId,
+        CallMode.voice,
+      );
+      final declined = await callRepo
+          .declineCall(secondRing.when(ok: (c) => c.id, err: (f) => throw f));
+      expect(declined.when(ok: (c) => c.status, err: (f) => throw f),
+          CallStatus.declined);
     },
     timeout: const Timeout(Duration(minutes: 2)),
   );

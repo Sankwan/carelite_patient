@@ -98,12 +98,21 @@ class DjangoCallRepository implements CallRepository {
   }
 
   @override
-  Future<Result<CallSession>> endCall(String callId) async {
+  Future<Result<CallSession>> endCall(String callId) => _act(callId, 'end');
+
+  @override
+  Future<Result<CallSession>> acceptCall(String callId) =>
+      _act(callId, 'accept');
+
+  @override
+  Future<Result<CallSession>> declineCall(String callId) =>
+      _act(callId, 'decline');
+
+  Future<Result<CallSession>> _act(String callId, String action) async {
     final id = _parseId(callId);
     if (id == null) return const Result.err(UnexpectedFailure());
     try {
-      final response =
-          await _client.post(ApiContract.callAction(id, 'end'));
+      final response = await _client.post(ApiContract.callAction(id, action));
       return _sessionFrom(response, successStatus: 200);
     } on DioException catch (_) {
       return const Result.err(NetworkFailure());

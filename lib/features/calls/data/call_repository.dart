@@ -21,4 +21,11 @@ abstract class CallRepository {
   Future<Result<CallSession>> fetchCall(String callId);
 
   Future<Result<CallSession>> endCall(String callId);
+
+  /// Answers a call the clinician started. The server refuses (403) until
+  /// this patient has done the pre-call checklist for that appointment, and
+  /// (400) once the call has stopped ringing.
+  Future<Result<CallSession>> acceptCall(String callId);
+
+  Future<Result<CallSession>> declineCall(String callId);
 }

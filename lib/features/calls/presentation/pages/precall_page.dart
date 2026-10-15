@@ -19,25 +19,33 @@ import 'call_page.dart';
 /// toast, per the backend's own acceptance criterion. Ticking here is
 /// entirely local until Confirm is pressed; only Confirm talks to the
 /// server, matching the server's own all-or-nothing validation.
+///
+/// With [answeringCallId], Join answers that ringing call rather than
+/// starting a new one.
 class PrecallPage extends StatelessWidget {
-  const PrecallPage({required this.appointment, super.key});
+  const PrecallPage({required this.appointment, this.answeringCallId, super.key});
 
   final Appointment appointment;
+  final String? answeringCallId;
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider<PrecallBloc>(
       create: (_) => getIt<PrecallBloc>(param1: appointment.id)
         ..add(const PrecallStarted()),
-      child: PrecallView(appointment: appointment),
+      child: PrecallView(
+        appointment: appointment,
+        answeringCallId: answeringCallId,
+      ),
     );
   }
 }
 
 class PrecallView extends StatelessWidget {
-  const PrecallView({required this.appointment, super.key});
+  const PrecallView({required this.appointment, this.answeringCallId, super.key});
 
   final Appointment appointment;
+  final String? answeringCallId;
 
   @override
   Widget build(BuildContext context) {
@@ -119,7 +127,11 @@ class PrecallView extends StatelessWidget {
                     ],
                   ),
                 ),
-                _BottomBar(appointment: appointment, state: state),
+                _BottomBar(
+                  appointment: appointment,
+                  answeringCallId: answeringCallId,
+                  state: state,
+                ),
               ],
             );
           },
@@ -258,9 +270,14 @@ class _ReadinessBanner extends StatelessWidget {
 }
 
 class _BottomBar extends StatelessWidget {
-  const _BottomBar({required this.appointment, required this.state});
+  const _BottomBar({
+    required this.appointment,
+    required this.answeringCallId,
+    required this.state,
+  });
 
   final Appointment appointment;
+  final String? answeringCallId;
   final PrecallState state;
 
   @override
@@ -309,7 +326,10 @@ class _BottomBar extends StatelessWidget {
   void _openCall(BuildContext context) {
     Navigator.of(context, rootNavigator: true).pushReplacement(
       MaterialPageRoute<void>(
-        builder: (_) => CallPage(appointment: appointment),
+        builder: (_) => CallPage(
+          appointment: appointment,
+          answeringCallId: answeringCallId,
+        ),
       ),
     );
   }

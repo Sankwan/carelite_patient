@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/network/failure.dart';
+import '../../../../core/utils/result.dart';
 import '../../data/call_repository.dart';
+import '../../domain/call_session.dart';
 import 'call_event.dart';
 import 'call_state.dart';
 
-/// Drives one call attempt: initiate, poll while it's live, end.
+/// Drives one call: initiate or answer, poll while it's live, end.
 ///
 /// [callChanged] carries call ids from the realtime socket (null: any call
 /// may have changed): a change to this call is fetched at once, so an answer shows without waiting for the
@@ -23,6 +25,7 @@ class CallBloc extends Bloc<CallEvent, CallState> {
   })  : _callRepository = callRepository,
         super(const CallState()) {
     on<CallStarted>(_onStarted);
+    on<CallAnswered>(_onAnswered);
     on<CallPolled>(_onPolled);
     on<CallEndRequested>(_onEndRequested);
     _pushes = callChanged
@@ -38,11 +41,19 @@ class CallBloc extends Bloc<CallEvent, CallState> {
 
   Timer? _timer;
 
-  Future<void> _onStarted(CallStarted event, Emitter<CallState> emit) async {
+  Future<void> _onStarted(CallStarted event, Emitter<CallState> emit) =>
+      _begin(emit, () => _callRepository.initiateCall(appointmentId, event.mode));
+
+  Future<void> _onAnswered(CallAnswered event, Emitter<CallState> emit) =>
+      _begin(emit, () => _callRepository.acceptCall(event.callId));
+
+  Future<void> _begin(
+    Emitter<CallState> emit,
+    Future<Result<CallSession>> Function() open,
+  ) async {
     emit(state.copyWith(lifecycle: CallLifecycle.connecting, clearFailure: true));
     try {
-      final result =
-          await _callRepository.initiateCall(appointmentId, event.mode);
+      final result = await open();
       result.when(
         ok: (session) {
           emit(state.copyWith(

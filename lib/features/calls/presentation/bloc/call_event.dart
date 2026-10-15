@@ -9,8 +9,7 @@ sealed class CallEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-/// Initiates the call. This app only ever initiates — there is no scenario
-/// where a patient receives one (see docs/PROJECT_STATUS.md).
+/// Initiates the call from the patient's side.
 final class CallStarted extends CallEvent {
   const CallStarted({this.mode = CallMode.video});
 
@@ -18,6 +17,16 @@ final class CallStarted extends CallEvent {
 
   @override
   List<Object?> get props => [mode];
+}
+
+/// Answers a call the clinician started, then follows it like any other.
+final class CallAnswered extends CallEvent {
+  const CallAnswered(this.callId);
+
+  final String callId;
+
+  @override
+  List<Object?> get props => [callId];
 }
 
 /// Internal: fired on a timer while the call is still ringing or accepted,

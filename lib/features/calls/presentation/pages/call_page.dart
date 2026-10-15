@@ -21,17 +21,22 @@ import '../bloc/call_state.dart';
 
 /// The call screen: ringing, connected and ended come from the server;
 /// the audio and video happen in the Daily.co room opened from here.
+///
+/// With [answeringCallId] it answers that call (the clinician rang the
+/// patient) instead of starting a new one.
 class CallPage extends StatelessWidget {
-  const CallPage({required this.appointment, super.key});
+  const CallPage({required this.appointment, this.answeringCallId, super.key});
 
   final Appointment appointment;
+  final String? answeringCallId;
 
   @override
   Widget build(BuildContext context) {
+    final answering = answeringCallId;
     return BlocProvider<CallBloc>(
       create: (_) => getIt<CallBloc>(param1: appointment.id)
-        ..add(const CallStarted()),
-      child: CallView(appointment: appointment),
+        ..add(answering == null ? const CallStarted() : CallAnswered(answering)),
+      child: CallView(appointment: appointment, answeringCallId: answering),
     );
   }
 }
@@ -39,11 +44,13 @@ class CallPage extends StatelessWidget {
 class CallView extends StatefulWidget {
   const CallView({
     required this.appointment,
+    this.answeringCallId,
     this.ringTimeout = const Duration(seconds: 45),
     super.key,
   });
 
   final Appointment appointment;
+  final String? answeringCallId;
 
   /// How long the call may ring before the patient is offered someone
   /// else. The server never times a ringing call out by itself.
@@ -142,7 +149,7 @@ class _CallViewState extends State<CallView> {
             'try again.',
         retryLabel: 'Try again',
         suggestOthers: false,
-        onRetry: () => context.read<CallBloc>().add(const CallStarted()),
+        onRetry: () => context.read<CallBloc>().add(_retryEvent),
       );
       return;
     }
@@ -156,6 +163,11 @@ class _CallViewState extends State<CallView> {
     if (announceFailure && state.failure != null) {
       AppToast.error(context, state.failure!.message);
     }
+  }
+
+  CallEvent get _retryEvent {
+    final answering = widget.answeringCallId;
+    return answering == null ? const CallStarted() : CallAnswered(answering);
   }
 
   void _onRingTimeout() {
