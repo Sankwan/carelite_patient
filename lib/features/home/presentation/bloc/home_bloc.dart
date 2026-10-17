@@ -6,6 +6,7 @@ import '../../../../core/network/failure.dart';
 import '../../../../core/utils/result.dart';
 import '../../../location/data/location_repository.dart';
 import '../../../notifications/data/notification_repository.dart';
+import '../../../profile/data/profile_repository.dart';
 import '../../data/appointment_repository.dart';
 import '../../data/provider_repository.dart';
 import '../../domain/appointment.dart';
@@ -19,12 +20,14 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     required ProviderRepository providerRepository,
     required LocationRepository locationRepository,
     required NotificationRepository notificationRepository,
+    ProfileRepository? profileRepository,
     Stream<void>? appointmentsChanged,
     Stream<void>? notificationsChanged,
   })  : _appointmentRepository = appointmentRepository,
         _providerRepository = providerRepository,
         _locationRepository = locationRepository,
         _notificationRepository = notificationRepository,
+        _profileRepository = profileRepository,
         super(const HomeState()) {
     on<HomeStarted>(_onStarted);
     on<HomeRefreshed>(_onRefreshed);
@@ -58,6 +61,11 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   final AppointmentRepository _appointmentRepository;
   final ProviderRepository _providerRepository;
   final LocationRepository _locationRepository;
+
+  /// Saves the position Home just read onto the patient's profile, so the
+  /// server can match labs and pharmacies near them. Fire-and-forget: a
+  /// failed save costs nothing visible on this screen.
+  final ProfileRepository? _profileRepository;
   final NotificationRepository _notificationRepository;
 
   Future<void> _onStarted(HomeStarted event, Emitter<HomeState> emit) async {
@@ -89,6 +97,9 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     final coordinates = await _locationRepository.currentPosition().then(
           (result) => result.when(ok: (value) => value, err: (_) => null),
         );
+    if (coordinates != null) {
+      unawaited(_profileRepository?.saveLastKnownLocation(coordinates));
+    }
 
     Result<Appointment?> upcoming;
     Result<List<Appointment>> recent;

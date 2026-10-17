@@ -18,7 +18,8 @@ final class VitalsState extends Equatable {
 
   /// Newest first, for display — the server returns oldest first so a
   /// trend read start-to-end makes chronological sense server-side.
-  List<VitalsRecord> get newestFirst => records.reversed.toList(growable: false);
+  List<VitalsRecord> get newestFirst =>
+      records.reversed.toList(growable: false);
 
   VitalsState copyWith({
     VitalsStatus? status,

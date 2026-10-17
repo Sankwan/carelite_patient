@@ -17,7 +17,8 @@ class RecordsBloc extends Bloc<RecordsEvent, RecordsState> {
 
   final RecordsRepository _recordsRepository;
 
-  Future<void> _onStarted(RecordsStarted event, Emitter<RecordsState> emit) async {
+  Future<void> _onStarted(
+      RecordsStarted event, Emitter<RecordsState> emit) async {
     emit(state.copyWith(status: RecordsStatus.loading, clearFailure: true));
     await _load(emit);
   }

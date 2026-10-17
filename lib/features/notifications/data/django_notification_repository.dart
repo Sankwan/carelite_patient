@@ -18,7 +18,7 @@ class DjangoNotificationRepository implements NotificationRepository {
   @override
   Future<Result<List<AppNotification>>> fetchAll({bool unreadOnly = false}) async {
     try {
-      final response = await _client.get(
+      final response = await _client.getAllPages(
         ApiContract.notifications,
         query: unreadOnly ? {'unread': 'true'} : null,
       );

@@ -52,7 +52,12 @@ class App extends StatelessWidget {
               debugShowCheckedModeBanner: false,
               theme: ThemeData(
                 useMaterial3: true,
-                scaffoldBackgroundColor: AppColors.white,
+                // Tinted scaffold + white, borderless cards: the card reads
+                // as elevated from background contrast alone, matching every
+                // comp app studied for the design-system pass (see
+                // docs/ui_research/phase3_design_system.md §1) instead of
+                // the Border.all stroke every card used to carry.
+                scaffoldBackgroundColor: AppColors.lightGrayBg,
                 colorScheme: ColorScheme.fromSeed(
                   seedColor: AppColors.teal,
                   primary: AppColors.teal,

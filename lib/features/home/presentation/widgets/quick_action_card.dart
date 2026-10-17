@@ -29,9 +29,18 @@ class QuickActionCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.white,
           borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-          border: Border.all(
-            color: isHighlighted ? AppColors.teal : AppColors.border,
-          ),
+          // Highlighted state reads as "primary" through a soft shadow
+          // instead of a stroke, matching every other card in the app —
+          // see docs/ui_research/phase3_design_system.md §1.
+          boxShadow: isHighlighted
+              ? [
+                  BoxShadow(
+                    color: AppColors.ink.withValues(alpha: 0.08),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
         ),
         child: Row(
           children: [

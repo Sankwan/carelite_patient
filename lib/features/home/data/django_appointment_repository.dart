@@ -127,7 +127,7 @@ class DjangoAppointmentRepository implements AppointmentRepository {
 
   Future<Result<List<Appointment>>> _fetchAll() async {
     try {
-      final response = await _client.get(ApiContract.appointments);
+      final response = await _client.getAllPages(ApiContract.appointments);
       if (response.statusCode != 200 || response.data is! Map) {
         return const Result.err(NetworkFailure());
       }

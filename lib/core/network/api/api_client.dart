@@ -126,3 +126,40 @@ class ApiClient {
     }
   }
 }
+
+/// Pagination on top of [ApiClient.get], kept as an extension so it goes
+/// through `get` (and so test doubles that stub `get` keep working).
+extension ApiClientPages on ApiClient {
+  /// Like [get], for a paginated DRF list: follows `next` until the last
+  /// page (or [maxPages]) and returns one response whose `results` holds
+  /// every row. Without this every list stopped at the first 20 rows.
+  /// A non-200 on a later page keeps what was already read.
+  Future<Response<dynamic>> getAllPages(
+    String path, {
+    Map<String, dynamic>? query,
+    int maxPages = 10,
+  }) async {
+    final first = await get(path, query: query);
+    if (first.statusCode != 200 || first.data is! Map || (first.data as Map)['results'] is! List) {
+      return first;
+    }
+    final rows = [...((first.data as Map)['results'] as List)];
+    var next = (first.data as Map)['next'];
+    for (var page = 1; page < maxPages && next is String && next.isNotEmpty; page++) {
+      // `next` is absolute and carries the server's own host, which can
+      // differ from the base URL behind a proxy; keep only its path+query.
+      final uri = Uri.parse(next);
+      final response = await get(uri.path, query: uri.queryParameters);
+      if (response.statusCode != 200 || response.data is! Map) break;
+      final pageRows = (response.data as Map)['results'];
+      if (pageRows is! List) break;
+      rows.addAll(pageRows);
+      next = (response.data as Map)['next'];
+    }
+    return Response<dynamic>(
+      requestOptions: first.requestOptions,
+      statusCode: first.statusCode,
+      data: {...(first.data as Map), 'results': rows, 'next': null},
+    );
+  }
+}

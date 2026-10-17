@@ -32,7 +32,8 @@ class VitalsBloc extends Bloc<VitalsEvent, VitalsState> {
     } catch (e) {
       emit(state.copyWith(
         status: VitalsStatus.ready,
-        failure: UnexpectedFailure('Could not load your vitals (${e.runtimeType}).'),
+        failure:
+            UnexpectedFailure('Could not load your vitals (${e.runtimeType}).'),
       ));
     }
   }

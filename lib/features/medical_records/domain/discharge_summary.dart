@@ -57,6 +57,13 @@ class DischargeSummary extends Equatable {
   }
 
   @override
-  List<Object?> get props =>
-      [id, diagnosis, advice, prescriptions, followUpDate, generatedBy, generatedAt];
+  List<Object?> get props => [
+        id,
+        diagnosis,
+        advice,
+        prescriptions,
+        followUpDate,
+        generatedBy,
+        generatedAt
+      ];
 }

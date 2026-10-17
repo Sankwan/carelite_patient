@@ -4,6 +4,9 @@
          reach the network at all. -->
     <uses-permission android:name="android.permission.INTERNET"/>
 
+    <!-- The optional health-record lock (Profile → Privacy). -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
+
     <!-- Location: the app matches patients to nearby clinicians, labs and
          pharmacies. COARSE is declared alongside
          FINE because Android 12+ lets a user grant approximate location

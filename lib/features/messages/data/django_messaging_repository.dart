@@ -24,7 +24,7 @@ class DjangoMessagingRepository implements MessagingRepository {
   @override
   Future<Result<List<Conversation>>> fetchConversations() async {
     try {
-      final response = await _client.get(ApiContract.conversations);
+      final response = await _client.getAllPages(ApiContract.conversations);
       final results = _results(response);
       if (results == null) return Result.err(_failureFor(response));
       final me = await currentUserId() ?? '';

@@ -123,7 +123,6 @@ class _RequestCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -180,7 +179,7 @@ class _Actions extends StatelessWidget {
             child: OutlinedButton(
               onPressed: () => _decide(context, AccessDecision.decline),
               style: OutlinedButton.styleFrom(
-                minimumSize: const Size(0, 40),
+                minimumSize: const Size(0, AppSpacing.touchTarget),
                 side: const BorderSide(color: AppColors.border),
               ),
               child: const Text('Decline', style: AppTextStyles.body),
@@ -191,8 +190,8 @@ class _Actions extends StatelessWidget {
             child: ElevatedButton(
               onPressed: () => _decide(context, AccessDecision.approve),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.teal,
-                minimumSize: const Size(0, 40),
+                backgroundColor: AppColors.navy,
+                minimumSize: const Size(0, AppSpacing.touchTarget),
               ),
               child: Text(
                 'Approve',
@@ -209,7 +208,7 @@ class _Actions extends StatelessWidget {
         child: OutlinedButton(
           onPressed: () => _decide(context, AccessDecision.revoke),
           style: OutlinedButton.styleFrom(
-            minimumSize: const Size(0, 40),
+            minimumSize: const Size(0, AppSpacing.touchTarget),
             side: const BorderSide(color: AppColors.error),
           ),
           child: Text(

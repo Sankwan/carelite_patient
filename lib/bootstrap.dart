@@ -11,6 +11,7 @@ import 'core/network/api/token_store.dart';
 import 'core/realtime/realtime_client.dart';
 import 'core/realtime/realtime_event.dart';
 import 'core/realtime/realtime_session.dart';
+import 'core/security/record_lock.dart';
 import 'core/storage/app_preferences.dart';
 import 'core/utils/appointments_changed.dart';
 import 'core/utils/external_launcher.dart';
@@ -125,6 +126,7 @@ void _setUpLogging() {
 
 void _registerDependencies(AppPreferences preferences) {
   getIt.registerSingleton<AppPreferences>(preferences);
+  getIt.registerLazySingleton<RecordLock>(() => RecordLock(preferences));
 
   // Auth is Django's, exclusively. SupabaseAuthRepository is gone: leaving
   // both registered would mean two identity systems issuing tokens for the
@@ -163,7 +165,7 @@ void _registerDependencies(AppPreferences preferences) {
   );
 
   getIt.registerLazySingleton<LocationRepository>(
-    () => const GeolocatorLocationRepository(),
+    GeolocatorLocationRepository.new,
   );
 
   getIt.registerLazySingleton<AppointmentRepository>(
@@ -216,7 +218,10 @@ void _registerDependencies(AppPreferences preferences) {
     ),
   );
   getIt.registerLazySingleton<ClinicianRepository>(
-    () => DjangoClinicianRepository(getIt<ApiClient>()),
+    () => DjangoClinicianRepository(
+      getIt<ApiClient>(),
+      location: getIt<LocationRepository>(),
+    ),
   );
 
   getIt.registerLazySingleton<RecordsRepository>(
@@ -255,6 +260,7 @@ void _registerDependencies(AppPreferences preferences) {
       providerRepository: getIt<ProviderRepository>(),
       locationRepository: getIt<LocationRepository>(),
       notificationRepository: getIt<NotificationRepository>(),
+      profileRepository: getIt<ProfileRepository>(),
       appointmentsChanged: getIt<AppointmentsChanged>().stream,
       notificationsChanged: live().notificationsChanged,
     ),

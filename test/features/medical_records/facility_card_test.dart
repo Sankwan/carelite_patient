@@ -31,6 +31,12 @@ class _FakeLauncher implements ExternalLauncher {
     calls.add('video:$url');
     return succeeds;
   }
+
+  @override
+  Future<bool> openDocument(String url) async {
+    calls.add('doc:$url');
+    return succeeds;
+  }
 }
 
 void main() {

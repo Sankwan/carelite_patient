@@ -66,6 +66,8 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Face ID unlocks your health record when you have turned on the record lock.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>CareLite uses your location to show clinicians, labs and pharmacies near you.</string>
 	<key>NSCameraUsageDescription</key>

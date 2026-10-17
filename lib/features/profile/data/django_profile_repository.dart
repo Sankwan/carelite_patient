@@ -4,6 +4,7 @@ import '../../../core/network/api/api_client.dart';
 import '../../../core/network/api/api_contract.dart';
 import '../../../core/network/failure.dart';
 import '../../../core/utils/result.dart';
+import '../../location/data/location_repository.dart';
 import '../domain/patient_account.dart';
 import '../domain/patient_profile.dart';
 import 'profile_repository.dart';
@@ -19,9 +20,41 @@ import 'profile_repository.dart';
 /// `emergency_flag`, a boolean meaning "needs faster attention", and no
 /// field to hold a contact (PT-C2 in docs/BACKEND_REQUESTS_PATIENT.md).
 class DjangoProfileRepository implements ProfileRepository {
-  const DjangoProfileRepository(this._client);
+  DjangoProfileRepository(this._client);
 
   final ApiClient _client;
+
+  Coordinates? _lastSentLocation;
+
+  /// About 500 m. Matching ranks facilities by distance in kilometres, so a
+  /// smaller move isn't worth a request on every Home refresh.
+  static const double _locationResendDegrees = 0.005;
+
+  @override
+  Future<Result<void>> saveLastKnownLocation(Coordinates position) async {
+    final last = _lastSentLocation;
+    if (last != null &&
+        (last.latitude - position.latitude).abs() < _locationResendDegrees &&
+        (last.longitude - position.longitude).abs() < _locationResendDegrees) {
+      return const Result.ok(null);
+    }
+    try {
+      final response = await _client.patch(
+        ApiContract.patientProfile,
+        data: {
+          'last_known_lat': position.latitude,
+          'last_known_lng': position.longitude,
+        },
+      );
+      if (response.statusCode == 200) {
+        _lastSentLocation = position;
+        return const Result.ok(null);
+      }
+      return Result.err(UnexpectedFailure(_messageFrom(response.data)));
+    } on DioException catch (_) {
+      return const Result.err(NetworkFailure());
+    }
+  }
 
   @override
   Future<Result<void>> saveProfile({

@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_text_styles.dart';
+import '../../../../core/security/record_lock_gate.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../domain/consultation.dart';
 import '../bloc/records_bloc.dart';
@@ -31,7 +32,8 @@ class MedicalRecordsPage extends StatelessWidget {
         automaticallyImplyLeading: false,
         title: const Text('Medical Records', style: AppTextStyles.h1),
       ),
-      body: SafeArea(
+      body: RecordLockGate(
+          child: SafeArea(
         child: BlocConsumer<RecordsBloc, RecordsState>(
           listenWhen: (previous, current) =>
               previous.failure != current.failure && current.failure != null,
@@ -62,7 +64,7 @@ class MedicalRecordsPage extends StatelessWidget {
             );
           },
         ),
-      ),
+      )),
     );
   }
 }
@@ -84,7 +86,6 @@ class _VitalsTrendLink extends StatelessWidget {
           padding: const EdgeInsets.all(AppSpacing.lg),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-            border: Border.all(color: AppColors.border),
           ),
           child: Row(
             children: [
@@ -96,13 +97,15 @@ class _VitalsTrendLink extends StatelessWidget {
                   color: AppColors.lightTealTint,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                 ),
-                child: const Icon(Icons.monitor_heart_outlined, color: AppColors.teal),
+                child: const Icon(Icons.monitor_heart_outlined,
+                    color: AppColors.teal),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Text(
                   'Vitals trend',
-                  style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w600),
+                  style:
+                      AppTextStyles.body.copyWith(fontWeight: FontWeight.w600),
                 ),
               ),
               const Icon(Icons.chevron_right, color: AppColors.muted),
@@ -137,7 +140,6 @@ class _ConsultationTile extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppColors.white,
             borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-            border: Border.all(color: AppColors.border),
           ),
           child: Row(
             children: [
@@ -149,8 +151,10 @@ class _ConsultationTile extends StatelessWidget {
                   color: AppColors.lightTealTint,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                 ),
+                // One folder per consultation: everything from booking to
+                // the clinician's summary lives inside it.
                 child: const Icon(
-                  Icons.description_outlined,
+                  Icons.folder_open_rounded,
                   color: AppColors.teal,
                 ),
               ),
@@ -161,13 +165,17 @@ class _ConsultationTile extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Consultation with ${consultation.clinicianLabel}',
+                      consultation.clinicianLabel,
                       style: AppTextStyles.body
                           .copyWith(fontWeight: FontWeight.w600),
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
-                    Text(consultation.dateLabel, style: AppTextStyles.bodyMuted),
+                    Text(
+                      '${consultation.dateLabel} · Notes, results, prescriptions',
+                      style: AppTextStyles.bodyMuted,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     if (!closed) ...[
                       const SizedBox(height: AppSpacing.xs),
                       Text(

@@ -7,6 +7,7 @@ import '../../../core/network/failure.dart';
 import '../../../core/utils/result.dart';
 import '../../home/domain/appointment.dart';
 import '../../home/domain/provider.dart';
+import '../../location/data/location_repository.dart';
 import '../domain/booking_request.dart';
 import '../domain/search_filter.dart';
 import 'clinician_repository.dart';
@@ -20,14 +21,20 @@ import 'clinician_repository.dart';
 /// `{"clinician": [...]}`) and slots for a clinician that does not exist
 /// (404). Those are the responses the messages below are written against.
 class DjangoClinicianRepository implements ClinicianRepository {
-  const DjangoClinicianRepository(this._client);
+  const DjangoClinicianRepository(this._client, {LocationRepository? location})
+      : _location = location;
 
   final ApiClient _client;
+
+  /// Source of the patient's position for `capture_lat/lng` on a booking —
+  /// the server matches labs from it later (`consultation_origin`), and
+  /// without it the clinician is offered no nearby lab at all.
+  final LocationRepository? _location;
 
   @override
   Future<Result<List<Provider>>> search(ClinicianFilter filter) async {
     try {
-      final response = await _client.get(
+      final response = await _client.getAllPages(
         ApiContract.clinicians,
         query: filter.toQuery().isEmpty ? null : filter.toQuery(),
       );
@@ -102,9 +109,16 @@ class DjangoClinicianRepository implements ClinicianRepository {
   @override
   Future<Result<Appointment>> book(BookingRequest request) async {
     try {
+      final position = _location?.lastKnown;
       final response = await _client.post(
         ApiContract.appointments,
-        data: request.toJson(),
+        data: {
+          ...request.toJson(),
+          if (position != null) ...{
+            'capture_lat': position.latitude,
+            'capture_lng': position.longitude,
+          },
+        },
       );
       if (response.statusCode == 201 && response.data is Map) {
         try {

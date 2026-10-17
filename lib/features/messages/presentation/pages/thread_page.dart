@@ -130,7 +130,6 @@ class _Bubble extends StatelessWidget {
         decoration: BoxDecoration(
           color: mine ? AppColors.teal : AppColors.white,
           borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-          border: mine ? null : Border.all(color: AppColors.border),
         ),
         child: Column(
           crossAxisAlignment:

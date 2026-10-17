@@ -399,7 +399,7 @@ class _VideoPanel extends StatelessWidget {
         ),
         label: Text(current.mode == CallMode.voice ? 'Join call' : 'Join video'),
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.teal,
+          backgroundColor: AppColors.navy,
           foregroundColor: AppColors.white,
           minimumSize: const Size.fromHeight(52),
         ),

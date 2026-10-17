@@ -26,7 +26,7 @@ class DjangoRecordsRepository implements RecordsRepository {
   @override
   Future<Result<List<Consultation>>> fetchConsultations() async {
     try {
-      final response = await _client.get(ApiContract.consultations);
+      final response = await _client.getAllPages(ApiContract.consultations);
       if (response.statusCode != 200 || response.data is! Map) {
         return const Result.err(NetworkFailure());
       }
@@ -51,6 +51,27 @@ class DjangoRecordsRepository implements RecordsRepository {
       } catch (e) {
         return Result.err(UnexpectedFailure(
           'Could not read your records (${e.runtimeType}).',
+        ));
+      }
+    } on DioException catch (_) {
+      return const Result.err(NetworkFailure());
+    }
+  }
+
+  @override
+  Future<Result<Consultation>> fetchConsultation(String id) async {
+    try {
+      final response = await _client.get(ApiContract.consultation(id));
+      if (response.statusCode != 200 || response.data is! Map) {
+        return const Result.err(NetworkFailure());
+      }
+      try {
+        return Result.ok(Consultation.fromDjangoJson(
+          (response.data as Map).cast<String, dynamic>(),
+        ));
+      } catch (e) {
+        return Result.err(UnexpectedFailure(
+          'Could not read this record (${e.runtimeType}).',
         ));
       }
     } on DioException catch (_) {

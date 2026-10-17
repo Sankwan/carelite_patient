@@ -1,5 +1,6 @@
 
 import '../../../core/utils/result.dart';
+import '../../location/data/location_repository.dart';
 import '../domain/patient_account.dart';
 import '../domain/patient_profile.dart';
 
@@ -18,4 +19,10 @@ abstract class ProfileRepository {
   /// other, so this fetches both rather than making the Bloc orchestrate
   /// two calls.
   Future<Result<PatientAccount>> fetchAccount();
+
+  /// Stores where the patient is on their profile (`last_known_lat/lng`),
+  /// which the server falls back to when matching labs and pharmacies. May
+  /// skip the request when the position has barely changed since the last
+  /// one sent.
+  Future<Result<void>> saveLastKnownLocation(Coordinates position);
 }

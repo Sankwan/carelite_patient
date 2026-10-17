@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../bootstrap.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -52,7 +53,8 @@ class ClinicianProfilePage extends StatelessWidget {
         // A replacement needs the extra constructor argument, which the
         // two-parameter DI factory cannot carry.
         final bloc = replacesId == null
-            ? getIt<BookingBloc>(param1: clinician, param2: BookingMode.scheduled)
+            ? getIt<BookingBloc>(
+                param1: clinician, param2: BookingMode.scheduled)
             : BookingBloc(
                 clinicianRepository: getIt<ClinicianRepository>(),
                 clinician: clinician,
@@ -225,7 +227,6 @@ class _Details extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppColors.white,
             borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-            border: Border.all(color: AppColors.border),
           ),
           child: Row(
             children: [
@@ -248,7 +249,8 @@ class _Details extends StatelessWidget {
                     ),
                     if (clinician.specialty != null) ...[
                       const SizedBox(height: 2),
-                      Text(clinician.specialty!, style: AppTextStyles.bodyMuted),
+                      Text(clinician.specialty!,
+                          style: AppTextStyles.bodyMuted),
                     ],
                     const SizedBox(height: AppSpacing.sm),
                     Wrap(
@@ -258,9 +260,10 @@ class _Details extends StatelessWidget {
                       children: [
                         if (rating != null) RatingBadge(rating: rating),
                         if (experience != null)
-                          Text(experience, style: AppTextStyles.caption.copyWith(
-                            color: AppColors.muted,
-                          )),
+                          Text(experience,
+                              style: AppTextStyles.caption.copyWith(
+                                color: AppColors.muted,
+                              )),
                         Text(
                           clinician.isAvailable ? 'Online now' : 'Offline',
                           style: AppTextStyles.caption.copyWith(
@@ -290,7 +293,8 @@ class _Details extends StatelessWidget {
                 ),
                 Text(
                   fee.formatted,
-                  style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w600),
+                  style:
+                      AppTextStyles.body.copyWith(fontWeight: FontWeight.w600),
                 ),
               ],
             ),
@@ -310,15 +314,33 @@ class _Details extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('About', style: AppTextStyles.body.copyWith(
-                  fontWeight: FontWeight.w600,
-                )),
+                Text('About',
+                    style: AppTextStyles.body.copyWith(
+                      fontWeight: FontWeight.w600,
+                    )),
                 const SizedBox(height: AppSpacing.sm),
                 Text(clinician.bio!, style: AppTextStyles.bodyMuted),
               ],
             ),
           ),
         ],
+        const SizedBox(height: AppSpacing.lg),
+        // Optional, but the clinician accepts or declines from this alone —
+        // without it they see a request with no idea what it's for.
+        Text('What do you need help with?', style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w600)),
+        const SizedBox(height: AppSpacing.sm),
+        TextFormField(
+          initialValue: state.reason,
+          maxLength: 255,
+          minLines: 1,
+          maxLines: 3,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(
+            hintText: 'e.g. Chest pain when climbing stairs (optional)',
+            counterText: '',
+          ),
+          onChanged: (value) => context.read<BookingBloc>().add(BookingReasonChanged(value)),
+        ),
         const SizedBox(height: AppSpacing.lg),
         _ModeSelector(state: state),
         const SizedBox(height: AppSpacing.lg),
@@ -377,9 +399,10 @@ class _Availability extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Choose a time', style: AppTextStyles.body.copyWith(
-          fontWeight: FontWeight.w600,
-        )),
+        Text('Choose a day',
+            style: AppTextStyles.body.copyWith(
+              fontWeight: FontWeight.w600,
+            )),
         const SizedBox(height: AppSpacing.md),
         SlotPicker(
           slotsByDay: state.slotsByDay,
@@ -406,7 +429,8 @@ class _ModeSelector extends StatelessWidget {
           child: _ModeTab(
             label: 'Pick a time',
             selected: state.mode == BookingMode.scheduled,
-            onTap: () => bloc.add(const BookingModeChanged(BookingMode.scheduled)),
+            onTap: () =>
+                bloc.add(const BookingModeChanged(BookingMode.scheduled)),
           ),
         ),
         const SizedBox(width: AppSpacing.sm),
@@ -414,7 +438,8 @@ class _ModeSelector extends StatelessWidget {
           child: _ModeTab(
             label: 'On demand',
             selected: state.mode == BookingMode.onDemand,
-            onTap: () => bloc.add(const BookingModeChanged(BookingMode.onDemand)),
+            onTap: () =>
+                bloc.add(const BookingModeChanged(BookingMode.onDemand)),
           ),
         ),
       ],
@@ -472,43 +497,79 @@ class _BookingBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final onDemand = state.mode == BookingMode.onDemand;
+    final slot = state.selectedSlot;
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: const BoxDecoration(
         color: AppColors.white,
         border: Border(top: BorderSide(color: AppColors.border)),
       ),
-      child: SizedBox(
-        width: double.infinity,
-        child: ElevatedButton(
-          // Disabled until the request the button would send is actually
-          // valid — the state exposes one `request`, so the button's enabled
-          // state and the payload can never disagree.
-          onPressed: state.canSubmit
-              ? () => context.read<BookingBloc>().add(const BookingSubmitted())
-              : null,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.teal,
-            disabledBackgroundColor: AppColors.border,
-            minimumSize: const Size.fromHeight(52),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Restates what the button will book, so the patient never has to
+          // scroll back up to check before committing — and says why the
+          // button is disabled instead of leaving it greyed out silently.
+          if (!onDemand && !state.hasNoSlots) ...[
+            Row(
+              children: [
+                Icon(
+                  slot == null
+                      ? Icons.touch_app_outlined
+                      : Icons.event_available,
+                  size: 18,
+                  color: slot == null ? AppColors.muted : AppColors.tealText,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    slot == null
+                        ? 'Pick a day and time to continue'
+                        : DateFormat('EEE d MMM · h:mm a').format(slot),
+                    style: slot == null
+                        ? AppTextStyles.bodyMuted
+                        : AppTextStyles.body
+                            .copyWith(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              // Disabled until the request the button would send is actually
+              // valid — the state exposes one `request`, so the button's enabled
+              // state and the payload can never disagree.
+              onPressed: state.canSubmit
+                  ? () =>
+                      context.read<BookingBloc>().add(const BookingSubmitted())
+                  : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.navy,
+                disabledBackgroundColor: AppColors.border,
+                minimumSize: const Size.fromHeight(52),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+                ),
+              ),
+              child: state.isSubmitting
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.white,
+                      ),
+                    )
+                  : Text(
+                      onDemand ? 'Request now' : 'Book appointment',
+                      style: AppTextStyles.buttonLabel,
+                    ),
             ),
           ),
-          child: state.isSubmitting
-              ? const SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppColors.white,
-                  ),
-                )
-              : Text(
-                  onDemand ? 'Request now' : 'Book appointment',
-                  style: AppTextStyles.buttonLabel,
-                ),
-        ),
+        ],
       ),
     );
   }
@@ -526,7 +587,6 @@ class _Panel extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-        border: Border.all(color: AppColors.border),
       ),
       child: child,
     );

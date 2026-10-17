@@ -13,6 +13,7 @@ class HomeHeader extends StatelessWidget {
     required this.onNotificationsPressed,
     this.avatarLabel,
     this.locationLabel,
+    this.onEnableLocation,
     this.hasUnreadNotifications = false,
     super.key,
   });
@@ -31,6 +32,11 @@ class HomeHeader extends StatelessWidget {
   final String? avatarLabel;
 
   final String? locationLabel;
+
+  /// Shown in place of [locationLabel] when there is none. "Maybe Later" on
+  /// the location prompt is otherwise permanent — the router never shows
+  /// that screen again — so this is the patient's way back.
+  final VoidCallback? onEnableLocation;
   final bool hasUnreadNotifications;
 
   @override
@@ -70,6 +76,33 @@ class HomeHeader extends StatelessWidget {
                       ),
                     ),
                   ],
+                ),
+              ] else if (onEnableLocation != null) ...[
+                const SizedBox(height: 2),
+                InkWell(
+                  onTap: onEnableLocation,
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                  child: Padding(
+                    // Keeps the tap target tall enough without pushing the
+                    // greeting row apart.
+                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.location_off_outlined,
+                            size: 14, color: AppColors.tealText),
+                        const SizedBox(width: 2),
+                        Text(
+                          'Turn on location',
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.tealText,
+                            decoration: TextDecoration.underline,
+                            decorationColor: AppColors.tealText,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ],

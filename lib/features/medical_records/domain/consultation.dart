@@ -91,7 +91,13 @@ class Consultation extends Equatable {
 
   @override
   List<Object?> get props => [
-        id, appointmentId, status, clinicianUsername, clinicianName,
-        startedAt, endedAt, latestNoteVersion,
+        id,
+        appointmentId,
+        status,
+        clinicianUsername,
+        clinicianName,
+        startedAt,
+        endedAt,
+        latestNoteVersion,
       ];
 }

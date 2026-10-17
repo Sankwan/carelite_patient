@@ -22,7 +22,7 @@ class DjangoAccessRepository implements AccessRepository {
   @override
   Future<Result<List<AccessRequest>>> fetchRequests() async {
     try {
-      final response = await _client.get(ApiContract.accessRequests);
+      final response = await _client.getAllPages(ApiContract.accessRequests);
       if (response.statusCode != 200 || response.data is! Map) {
         return const Result.err(NetworkFailure());
       }

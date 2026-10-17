@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../bootstrap.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_text_styles.dart';
+import '../../../../core/security/record_lock.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
@@ -224,7 +226,62 @@ class _AccountActions extends StatelessWidget {
               MaterialPageRoute<void>(builder: (_) => const RecordAccessPage()),
             ),
           ),
+          const _RecordLockRow(),
         ],
+      ),
+    );
+  }
+}
+
+/// The optional record lock, with the reason it exists said up front.
+class _RecordLockRow extends StatelessWidget {
+  const _RecordLockRow();
+
+  @override
+  Widget build(BuildContext context) {
+    if (!getIt.isRegistered<RecordLock>()) return const SizedBox.shrink();
+    final lock = getIt<RecordLock>();
+    return ListenableBuilder(
+      listenable: lock,
+      builder: (context, _) => Padding(
+        padding: const EdgeInsets.only(top: AppSpacing.sm),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(top: 2),
+              child: Icon(Icons.fingerprint, size: 20, color: AppColors.muted),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Lock my health record', style: AppTextStyles.body),
+                  SizedBox(height: 2),
+                  Text(
+                    'Asks for your fingerprint, face or phone PIN before showing your '
+                    'records, results and prescriptions, so someone using your '
+                    'unlocked phone can’t read them. Sensitive results always ask.',
+                    style: AppTextStyles.bodyMuted,
+                  ),
+                ],
+              ),
+            ),
+            Switch(
+              value: lock.isEnabled,
+              onChanged: (value) async {
+                final changed = await lock.setEnabled(value);
+                if (!changed && context.mounted) {
+                  AppToast.info(
+                    context,
+                    'Set up a fingerprint, face or screen lock on this phone first.',
+                  );
+                }
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -396,7 +453,6 @@ class _Panel extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-        border: Border.all(color: AppColors.border),
       ),
       child: child,
     );

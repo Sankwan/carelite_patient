@@ -7,6 +7,10 @@ abstract class RecordsRepository {
   /// server-side, so there is no patient id to pass.
   Future<Result<List<Consultation>>> fetchConsultations();
 
+  /// One consultation by id — what a notification points at
+  /// (`RESULT_READY` carries `consultation_id`).
+  Future<Result<Consultation>> fetchConsultation(String id);
+
   /// Everything attached to one consultation.
   ///
   /// A section that legitimately has no data comes back empty (or null for

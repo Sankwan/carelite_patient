@@ -23,7 +23,8 @@ class ClinicalNote extends Equatable {
       id: '${row['id']}',
       version: row['version'] as int? ?? 0,
       authorUsername: row['author_username'] as String?,
-      createdAt: DateTime.tryParse(row['created_at'] as String? ?? '')?.toLocal(),
+      createdAt:
+          DateTime.tryParse(row['created_at'] as String? ?? '')?.toLocal(),
       // Ordered deliberately: this is the order a clinician reads a note in,
       // and a LinkedHashMap preserves it.
       sections: {

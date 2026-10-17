@@ -57,9 +57,10 @@ class FacilityCard extends StatelessWidget {
                       icon: const Icon(Icons.directions, size: 18),
                       label: const Text('Directions'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.teal,
+                        backgroundColor: AppColors.navy,
                         foregroundColor: AppColors.white,
-                        minimumSize: const Size.fromHeight(48),
+                        minimumSize:
+                            const Size.fromHeight(AppSpacing.touchTarget),
                       ),
                     ),
                   ),
@@ -101,7 +102,8 @@ class FacilityCard extends StatelessWidget {
     final opened = await getIt<ExternalLauncher>().dial(facility.phone!);
     if (!opened && context.mounted) {
       // The number is shown so the patient can still dial it by hand.
-      AppToast.error(context, 'Could not open the dialler. Call ${facility.phone}.');
+      AppToast.error(
+          context, 'Could not open the dialler. Call ${facility.phone}.');
     }
   }
 }

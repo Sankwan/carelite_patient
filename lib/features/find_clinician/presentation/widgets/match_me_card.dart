@@ -25,7 +25,6 @@ class MatchMeCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.lightTealTint,
         borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-        border: Border.all(color: AppColors.teal.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [

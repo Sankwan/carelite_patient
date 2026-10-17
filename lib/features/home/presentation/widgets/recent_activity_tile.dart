@@ -34,7 +34,6 @@ class RecentActivityTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.white,
           borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-          border: Border.all(color: AppColors.border),
         ),
         child: Row(
           children: [

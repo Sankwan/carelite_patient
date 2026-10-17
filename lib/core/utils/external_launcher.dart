@@ -18,6 +18,10 @@ abstract class ExternalLauncher {
   /// Opens a video room in a browser view inside the app (Chrome Custom
   /// Tabs / Safari View Controller), which supports camera and microphone.
   Future<bool> openVideoRoom(String url);
+
+  /// Opens a result attachment (a short-lived signed link) in the same
+  /// in-app browser view, so nothing is downloaded to shared storage.
+  Future<bool> openDocument(String url);
 }
 
 class UrlExternalLauncher implements ExternalLauncher {
@@ -44,6 +48,9 @@ class UrlExternalLauncher implements ExternalLauncher {
       return false;
     }
   }
+
+  @override
+  Future<bool> openDocument(String url) => openVideoRoom(url);
 
   /// Google's universal maps link: opens the Maps app when installed and
   /// the browser otherwise, on both Android and iOS, with the origin left

@@ -110,7 +110,7 @@ void main() {
       serverStatus: PrecallStatus(youAcknowledged: true, canJoin: true),
     ));
 
-    expect(find.textContaining('Waiting for the clinician'), findsOneWidget);
+    expect(find.textContaining('confirm their checklist when they answer'), findsOneWidget);
   });
 
   testWidgets('shows both ready once both participants have confirmed',

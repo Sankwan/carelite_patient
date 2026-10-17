@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../core/constants/app_colors.dart';
+import '../../../../bootstrap.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../calls/presentation/pages/precall_page.dart';
 import '../../../find_clinician/presentation/pages/clinician_profile_page.dart';
+import '../../../location/data/location_repository.dart';
 import '../../domain/provider.dart';
 import '../bloc/home_bloc.dart';
 import '../bloc/home_event.dart';
@@ -47,7 +49,6 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.white,
       body: SafeArea(
         child: BlocConsumer<HomeBloc, HomeState>(
           listenWhen: (previous, current) => previous.failure != current.failure,
@@ -82,6 +83,7 @@ class HomePage extends StatelessWidget {
                     locationLabel: state.hasLocation
                         ? (state.locationLabel ?? 'Near you')
                         : null,
+                    onEnableLocation: () => _enableLocation(context),
                     hasUnreadNotifications: state.unreadNotifications > 0,
                     onNotificationsPressed: () async {
                       await context.push(AppRoutes.notifications);
@@ -104,7 +106,17 @@ class HomePage extends StatelessWidget {
                   if (state.upcoming != null) ...[
                     UpcomingAppointmentCard(
                       appointment: state.upcoming!,
-                      onJoin: () => context.push(AppRoutes.appointments),
+                      // Joinable: straight to the pre-call checklist, the
+                      // same screen the Appointments tab opens. Otherwise
+                      // there is nothing to join yet, so show the
+                      // appointment where it can be viewed or cancelled.
+                      onJoin: state.upcoming!.isJoinable
+                          ? () => Navigator.of(context, rootNavigator: true)
+                              .push<void>(MaterialPageRoute<void>(
+                                builder: (_) =>
+                                    PrecallPage(appointment: state.upcoming!),
+                              ))
+                          : () => context.go(AppRoutes.appointments),
                     ),
                     const SizedBox(height: AppSpacing.xl),
                   ],
@@ -228,12 +240,12 @@ class _RecentActivity extends StatelessWidget {
       children: [
         SectionHeader(
           title: 'Recent Activity',
-          onSeeAll: () => context.push(AppRoutes.appointments),
+          onSeeAll: () => context.go(AppRoutes.appointments),
         ),
         for (final appointment in state.recentActivity) ...[
           RecentActivityTile(
             appointment: appointment,
-            onViewNotes: () => context.push(AppRoutes.medicalRecords),
+            onViewNotes: () => context.go(AppRoutes.medicalRecords),
           ),
           const SizedBox(height: AppSpacing.md),
         ],
@@ -256,6 +268,28 @@ Future<void> openFindClinician(
   final bloc = context.read<HomeBloc>();
   final booked = await context.push<bool>(route);
   if (booked == true) bloc.add(const HomeRefreshed());
+}
+
+/// Asks for location again after an earlier "Maybe Later" or refusal. A
+/// permanent refusal can only be undone in the OS settings, so that is where
+/// it goes; the dashboard reloads so the place name appears straight away.
+Future<void> _enableLocation(BuildContext context) async {
+  final bloc = context.read<HomeBloc>();
+  final repository = getIt<LocationRepository>();
+  final access = (await repository.requestPermission())
+      .when(ok: (value) => value, err: (_) => null);
+  switch (access) {
+    case LocationAccess.granted:
+      bloc.add(const HomeRefreshed());
+    case LocationAccess.deniedForever:
+      await repository.openSettings();
+    case LocationAccess.serviceDisabled:
+      if (context.mounted) {
+        AppToast.info(context, 'Turn on Location in your phone settings first.');
+      }
+    case LocationAccess.denied || null:
+      break;
+  }
 }
 
 Future<void> _openClinician(BuildContext context, Provider provider) async {

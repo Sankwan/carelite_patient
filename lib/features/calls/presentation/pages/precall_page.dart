@@ -7,6 +7,7 @@ import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../home/domain/appointment.dart';
+import '../../../home/presentation/widgets/avatar_circle.dart';
 import '../../domain/precall_checklist.dart';
 import '../bloc/precall_bloc.dart';
 import '../bloc/precall_event.dart';
@@ -23,7 +24,8 @@ import 'call_page.dart';
 /// With [answeringCallId], Join answers that ringing call rather than
 /// starting a new one.
 class PrecallPage extends StatelessWidget {
-  const PrecallPage({required this.appointment, this.answeringCallId, super.key});
+  const PrecallPage(
+      {required this.appointment, this.answeringCallId, super.key});
 
   final Appointment appointment;
   final String? answeringCallId;
@@ -42,7 +44,8 @@ class PrecallPage extends StatelessWidget {
 }
 
 class PrecallView extends StatelessWidget {
-  const PrecallView({required this.appointment, this.answeringCallId, super.key});
+  const PrecallView(
+      {required this.appointment, this.answeringCallId, super.key});
 
   final Appointment appointment;
   final String? answeringCallId;
@@ -66,6 +69,13 @@ class PrecallView extends StatelessWidget {
             if (state.status == PrecallStepStatus.loading) {
               return const Center(child: CircularProgressIndicator());
             }
+            final checklist = state.checklist;
+            final confirmed = [
+              checklist.quietLocation,
+              checklist.cameraMicOk,
+              checklist.connectionOk,
+              checklist.documentsReady,
+            ].where((done) => done).length;
             return Column(
               children: [
                 Expanded(
@@ -74,9 +84,37 @@ class PrecallView extends StatelessWidget {
                     children: [
                       _AppointmentSummary(appointment: appointment),
                       const SizedBox(height: AppSpacing.xl),
-                      const Text(
-                        'Confirm before you join',
-                        style: AppTextStyles.h2,
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Confirm before you join',
+                              style: AppTextStyles.h2,
+                            ),
+                          ),
+                          Text(
+                            '$confirmed of $_itemCount',
+                            style: AppTextStyles.caption.copyWith(
+                              color: confirmed == _itemCount
+                                  ? AppColors.success
+                                  : AppColors.tealText,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(AppSpacing.xs),
+                        child: LinearProgressIndicator(
+                          value: confirmed / _itemCount,
+                          minHeight: 6,
+                          backgroundColor: AppColors.lightTealTint,
+                          color: confirmed == _itemCount
+                              ? AppColors.success
+                              : AppColors.teal,
+                        ),
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       const Text(
@@ -87,37 +125,37 @@ class PrecallView extends StatelessWidget {
                       _ChecklistTile(
                         icon: Icons.volume_off_outlined,
                         title: 'I\'m in a quiet, private location',
+                        hint:
+                            'Somewhere you can talk openly about your health.',
                         checked: state.checklist.quietLocation,
-                        onChanged: () => context
-                            .read<PrecallBloc>()
-                            .add(const PrecallItemToggled(
+                        onChanged: () => context.read<PrecallBloc>().add(
+                            const PrecallItemToggled(
                                 PrecallItem.quietLocation)),
                       ),
                       _ChecklistTile(
                         icon: Icons.videocam_outlined,
                         title: 'My camera and microphone work',
+                        hint:
+                            'Your clinician needs to see and hear you clearly.',
                         checked: state.checklist.cameraMicOk,
-                        onChanged: () => context
-                            .read<PrecallBloc>()
-                            .add(const PrecallItemToggled(
-                                PrecallItem.cameraMicOk)),
+                        onChanged: () => context.read<PrecallBloc>().add(
+                            const PrecallItemToggled(PrecallItem.cameraMicOk)),
                       ),
                       _ChecklistTile(
                         icon: Icons.wifi,
                         title: 'My connection feels stable',
+                        hint: 'Wi-Fi is best. Stay close to your router.',
                         checked: state.checklist.connectionOk,
-                        onChanged: () => context
-                            .read<PrecallBloc>()
-                            .add(const PrecallItemToggled(
-                                PrecallItem.connectionOk)),
+                        onChanged: () => context.read<PrecallBloc>().add(
+                            const PrecallItemToggled(PrecallItem.connectionOk)),
                       ),
                       _ChecklistTile(
                         icon: Icons.folder_outlined,
                         title: 'I have any documents or results on hand',
+                        hint: 'Prescriptions, lab results or notes to discuss.',
                         checked: state.checklist.documentsReady,
-                        onChanged: () => context
-                            .read<PrecallBloc>()
-                            .add(const PrecallItemToggled(
+                        onChanged: () => context.read<PrecallBloc>().add(
+                            const PrecallItemToggled(
                                 PrecallItem.documentsReady)),
                       ),
                       if (state.serverStatus.youAcknowledged) ...[
@@ -141,6 +179,9 @@ class PrecallView extends StatelessWidget {
   }
 }
 
+/// Matches the four fields of [PrecallChecklist].
+const _itemCount = 4;
+
 class _AppointmentSummary extends StatelessWidget {
   const _AppointmentSummary({required this.appointment});
 
@@ -148,26 +189,53 @@ class _AppointmentSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final provider = appointment.provider;
+    final isVoice = appointment.consultationType == ConsultationKind.voice;
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-        border: Border.all(color: AppColors.border),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Text(
-            'Consultation with ${appointment.provider.displayName}',
-            style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w600),
+          AvatarCircle(name: provider.displayName, size: 56),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Consultation with ${provider.displayName}',
+                  style:
+                      AppTextStyles.body.copyWith(fontWeight: FontWeight.w600),
+                ),
+                if (provider.specialty != null) ...[
+                  const SizedBox(height: 2),
+                  Text(provider.specialty!, style: AppTextStyles.bodyMuted),
+                ],
+                const SizedBox(height: AppSpacing.sm),
+                Row(
+                  children: [
+                    Icon(
+                      isVoice ? Icons.call_outlined : Icons.videocam_outlined,
+                      size: 16,
+                      color: AppColors.tealText,
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    Flexible(
+                      child: Text(
+                        appointment.relativeLabel(),
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.tealText,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          if (appointment.provider.specialty != null) ...[
-            const SizedBox(height: 2),
-            Text(appointment.provider.specialty!, style: AppTextStyles.bodyMuted),
-          ],
-          const SizedBox(height: AppSpacing.xs),
-          Text(appointment.relativeLabel(), style: AppTextStyles.caption),
         ],
       ),
     );
@@ -178,12 +246,17 @@ class _ChecklistTile extends StatelessWidget {
   const _ChecklistTile({
     required this.icon,
     required this.title,
+    required this.hint,
     required this.checked,
     required this.onChanged,
   });
 
   final IconData icon;
   final String title;
+
+  /// One line on why the item matters, so it reads as preparation rather
+  /// than a form to tick through.
+  final String hint;
   final bool checked;
   final VoidCallback onChanged;
 
@@ -200,24 +273,41 @@ class _ChecklistTile extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
-              color: checked ? AppColors.lightTealTint : AppColors.white,
+              color: AppColors.white,
               borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-              border: Border.all(
-                color: checked ? AppColors.teal : AppColors.border,
-              ),
             ),
             child: Row(
               children: [
-                Icon(
-                  icon,
-                  color: checked ? AppColors.teal : AppColors.muted,
+                Container(
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppColors.lightGrayBg,
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                  ),
+                  child: Icon(icon, size: 20, color: AppColors.muted),
                 ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
-                  child: Text(title, style: AppTextStyles.body),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: AppTextStyles.body.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(hint, style: AppTextStyles.bodyMuted),
+                    ],
+                  ),
                 ),
+                const SizedBox(width: AppSpacing.sm),
                 Icon(
                   checked ? Icons.check_circle : Icons.circle_outlined,
+                  size: 26,
                   color: checked ? AppColors.teal : AppColors.border,
                 ),
               ],
@@ -255,8 +345,11 @@ class _ReadinessBanner extends StatelessWidget {
             child: Text(
               bothReady
                   ? 'You\'re both ready to join.'
-                  : 'You\'re confirmed. Waiting for the clinician to '
-                      'complete their checklist too.',
+                  // Join is already enabled here, so this must not read as
+                  // "wait": the clinician confirms their own checklist
+                  // when they answer.
+                  : 'You\'re ready. Call now, and the clinician will '
+                      'confirm their checklist when they answer.',
               style: AppTextStyles.caption.copyWith(
                 color: bothReady ? AppColors.success : AppColors.goldText,
                 fontWeight: FontWeight.w600,
@@ -283,42 +376,58 @@ class _BottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final canJoin = state.serverStatus.youAcknowledged;
+    final blocked = !canJoin && !state.checklist.isComplete;
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: const BoxDecoration(
         color: AppColors.white,
         border: Border(top: BorderSide(color: AppColors.border)),
       ),
-      child: SizedBox(
-        width: double.infinity,
-        child: ElevatedButton(
-          onPressed: canJoin
-              ? () => _openCall(context)
-              : (state.canSubmit
-                  ? () => context.read<PrecallBloc>().add(const PrecallSubmitted())
-                  : null),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.teal,
-            disabledBackgroundColor: AppColors.border,
-            minimumSize: const Size.fromHeight(52),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (blocked) ...[
+            const Text(
+              'Tick every item above to continue',
+              style: AppTextStyles.bodyMuted,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: canJoin
+                  ? () => _openCall(context)
+                  : (state.canSubmit
+                      ? () => context
+                          .read<PrecallBloc>()
+                          .add(const PrecallSubmitted())
+                      : null),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.navy,
+                disabledBackgroundColor: AppColors.border,
+                minimumSize: const Size.fromHeight(52),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+                ),
+              ),
+              child: state.status == PrecallStepStatus.submitting
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.white,
+                      ),
+                    )
+                  : Text(
+                      canJoin ? 'Join Call' : 'Confirm and continue',
+                      style: AppTextStyles.buttonLabel,
+                    ),
             ),
           ),
-          child: state.status == PrecallStepStatus.submitting
-              ? const SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppColors.white,
-                  ),
-                )
-              : Text(
-                  canJoin ? 'Join Call' : 'Confirm and continue',
-                  style: AppTextStyles.buttonLabel,
-                ),
-        ),
+        ],
       ),
     );
   }

@@ -106,8 +106,10 @@ void main() {
     expect(find.text('Chest tightness on exertion'), findsOneWidget);
     expect(find.text('Aspirin 75mg'), findsOneWidget);
     expect(find.text('75mg · daily'), findsOneWidget);
-    expect(find.textContaining('Circle Pharmacy'), findsOneWidget);
-    expect(find.text('Lipid Profile'), findsOneWidget);
+    // Once in Prescriptions, once under "Shared with".
+    expect(find.textContaining('Circle Pharmacy'), findsNWidgets(2));
+    // In Tests & results, and as the reason it went to the lab in "Shared with".
+    expect(find.text('Lipid Profile'), findsNWidgets(2));
     expect(find.text('Total chol 6.2 mmol/L (high)'), findsOneWidget);
   });
 
@@ -161,7 +163,7 @@ void main() {
       ),
     ));
 
-    expect(find.textContaining('cannot open attachments yet'), findsOneWidget);
+    expect(find.textContaining('once CareLite can show attachments'), findsOneWidget);
   });
 
   testWidgets('a failed load offers a retry rather than a blank page',

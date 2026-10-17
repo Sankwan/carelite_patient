@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_text_styles.dart';
+import '../../../../core/widgets/primary_button.dart';
 import '../../domain/app_notification.dart';
 
 /// One notification.
@@ -51,12 +52,12 @@ class NotificationCard extends StatelessWidget {
           child: Ink(
             padding: const EdgeInsets.all(AppSpacing.lg),
             decoration: BoxDecoration(
-              color: AppColors.white,
+              // Unread already has its own signal — the accent dot at the
+              // row's end and the bolder title weight — so dropping the
+              // border here doesn't lose anything; it just stops being the
+              // only card in the app that still had one.
+              color: unread ? accent.withValues(alpha: 0.06) : AppColors.white,
               borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-              border: Border.all(
-                color:
-                    unread ? accent.withValues(alpha: 0.35) : AppColors.border,
-              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -122,19 +123,7 @@ class NotificationCard extends StatelessWidget {
                   const SizedBox(height: AppSpacing.lg),
                   SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: onTap,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.teal,
-                        minimumSize: const Size.fromHeight(48),
-                        shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(AppSpacing.radiusLg),
-                        ),
-                      ),
-                      child:
-                          Text(actionLabel!, style: AppTextStyles.buttonLabel),
-                    ),
+                    child: PrimaryButton(label: actionLabel!, onPressed: onTap),
                   ),
                 ],
               ],
@@ -149,6 +138,8 @@ class NotificationCard extends StatelessWidget {
         NotificationType.incomingCall => Icons.videocam_outlined,
         NotificationType.clinicianAssigned => Icons.person_outline,
         NotificationType.resultReady => Icons.science_outlined,
+        NotificationType.appointmentCancelled => Icons.event_busy_outlined,
+        NotificationType.newMessage => Icons.chat_bubble_outline_rounded,
         NotificationType.payment => Icons.payments_outlined,
         NotificationType.generic => Icons.notifications_none_rounded,
       };
@@ -157,6 +148,8 @@ class NotificationCard extends StatelessWidget {
         NotificationType.incomingCall => AppColors.error,
         NotificationType.clinicianAssigned => AppColors.teal,
         NotificationType.resultReady => AppColors.blue,
+        NotificationType.appointmentCancelled => AppColors.error,
+        NotificationType.newMessage => AppColors.teal,
         NotificationType.payment => AppColors.goldText,
         NotificationType.generic => AppColors.muted,
       };

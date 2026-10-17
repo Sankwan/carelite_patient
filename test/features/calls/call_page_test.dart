@@ -29,6 +29,9 @@ class _FakeLauncher implements ExternalLauncher {
   }
 
   @override
+  Future<bool> openDocument(String url) async => true;
+
+  @override
   Future<bool> dial(String phone) async => true;
 
   @override

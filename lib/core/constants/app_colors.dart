@@ -32,4 +32,12 @@ abstract final class AppColors {
   /// dark-surface screen; added for this one case rather than picking an
   /// arbitrary gray that would drift from the rest of the palette.
   static const Color white70 = Color(0xB3FFFFFF);
+
+  /// NEW — not yet in Figma. Card surface for the scoped dark-mode treatment
+  /// (vitals/dashboard only — see docs/ui_research/phase3_design_system.md
+  /// §5). [ink] doubles as the dark scaffold background since it's already
+  /// the darkest token in the palette; this is its lighter "card on
+  /// scaffold" counterpart, matching the [white] on [lightGrayBg]
+  /// relationship in light mode.
+  static const Color cardDark = Color(0xFF132A4D);
 }

@@ -5,14 +5,15 @@ import 'package:intl/intl.dart';
 /// live backend, which sends these exact uppercase values.
 ///
 /// The original Figma Notifications screen invented its own card taxonomy
-/// (lab/pharmacy approval, dispatch status, message received…). Those do not
-/// exist here: PAYMENT has no backend behind it (payments are deferred), and
-/// there is no messaging app at all. These five are what the server can
-/// actually send, so they are what the UI is built from.
+/// (lab/pharmacy approval, dispatch status…). Those do not exist here, and
+/// PAYMENT has no backend behind it yet (payments are deferred). These are
+/// what the server can actually send, so they are what the UI is built from.
 enum NotificationType {
   incomingCall('Incoming call'),
   clinicianAssigned('Clinician assigned'),
+  appointmentCancelled('Appointment cancelled'),
   resultReady('Result ready'),
+  newMessage('New message'),
   payment('Payment'),
   generic('Notification');
 
@@ -65,6 +66,8 @@ class AppNotification extends Equatable {
   int? get appointmentId => _intFrom(payload['appointment_id']);
   int? get investigationId => _intFrom(payload['investigation_id']);
   int? get accessRequestId => _intFrom(payload['access_request_id']);
+  int? get consultationId => _intFrom(payload['consultation_id']);
+  int? get conversationId => _intFrom(payload['conversation_id']);
 
   /// "2:30 PM" today, "Yesterday", else "4 Sep" — computed, never stored.
   String relativeLabel({DateTime? now}) {
@@ -100,7 +103,9 @@ class AppNotification extends Equatable {
   static NotificationType _typeFrom(String? value) => switch (value) {
         'INCOMING_CALL' => NotificationType.incomingCall,
         'CLINICIAN_ASSIGNED' => NotificationType.clinicianAssigned,
+        'APPOINTMENT_CANCELLED' => NotificationType.appointmentCancelled,
         'RESULT_READY' => NotificationType.resultReady,
+        'NEW_MESSAGE' => NotificationType.newMessage,
         'PAYMENT' => NotificationType.payment,
         _ => NotificationType.generic,
       };

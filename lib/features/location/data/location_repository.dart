@@ -21,6 +21,11 @@ abstract class LocationRepository {
   /// location is supported, it just costs the distance labels.
   Future<Result<Coordinates?>> currentPosition();
 
+  /// The last position [currentPosition] returned this session, without
+  /// waiting on the GPS again — for actions like booking that shouldn't
+  /// stall for a fresh fix. Null until a position has been read.
+  Coordinates? get lastKnown;
+
   /// Opens the OS settings page — the only recovery path once a user has
   /// permanently denied access.
   Future<void> openSettings();
@@ -35,7 +40,24 @@ abstract class LocationRepository {
 }
 
 class GeolocatorLocationRepository implements LocationRepository {
-  const GeolocatorLocationRepository();
+  GeolocatorLocationRepository();
+
+  Coordinates? _lastKnown;
+
+  @override
+  Coordinates? get lastKnown => _lastKnown;
+
+  @override
+  Future<Result<Coordinates?>> currentPosition() async {
+    final result = await _readPosition();
+    result.when(
+      ok: (value) {
+        if (value != null) _lastKnown = value;
+      },
+      err: (_) {},
+    );
+    return result;
+  }
 
   @override
   Future<Result<LocationAccess>> requestPermission() async {
@@ -67,8 +89,7 @@ class GeolocatorLocationRepository implements LocationRepository {
     }
   }
 
-  @override
-  Future<Result<Coordinates?>> currentPosition() async {
+  Future<Result<Coordinates?>> _readPosition() async {
     try {
       final permission = await Geolocator.checkPermission();
       final granted = permission == LocationPermission.always ||

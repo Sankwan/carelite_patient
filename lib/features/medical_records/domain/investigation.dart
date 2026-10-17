@@ -25,6 +25,89 @@ enum InvestigationPriority {
   final String label;
 }
 
+/// Whether the patient may see the result yet. Results go to the clinician
+/// first and reach the patient when reviewed or after 48 hours; a sensitive
+/// result waits for the clinician (docs/BACKEND_REVIEW_2026-10-16.md,
+/// "Results and records"). Today's backend sends none of this, which reads
+/// as [released] — what the app has always shown.
+enum ResultRelease {
+  released,
+
+  /// With the clinician; auto-releases after the review window.
+  pendingReview,
+
+  /// Sensitive: shown only after the clinician releases it.
+  heldForClinician,
+}
+
+/// How a value compares with the lab's reference range.
+enum ResultFlag {
+  normal(''),
+  low('Low'),
+  high('High'),
+  criticalLow('Critically low'),
+  criticalHigh('Critically high');
+
+  const ResultFlag(this.label);
+
+  final String label;
+
+  bool get isAbnormal => this != normal;
+  bool get isCritical => this == criticalLow || this == criticalHigh;
+
+  static ResultFlag from(String? code) => switch (code?.toUpperCase()) {
+        'L' => low,
+        'H' => high,
+        'LL' => criticalLow,
+        'HH' => criticalHigh,
+        _ => normal,
+      };
+}
+
+/// One measured value of a result, e.g. "Haemoglobin 10.2 g/dL (12–16)".
+class ResultValue extends Equatable {
+  const ResultValue({
+    required this.name,
+    required this.value,
+    this.unit = '',
+    this.referenceRange = '',
+    this.flag = ResultFlag.normal,
+  });
+
+  factory ResultValue.fromDjangoJson(Map<String, dynamic> row) {
+    return ResultValue(
+      name: row['name'] as String? ?? '',
+      value: '${row['value'] ?? ''}',
+      unit: row['unit'] as String? ?? '',
+      referenceRange: row['reference_range'] as String? ?? '',
+      flag: ResultFlag.from(row['flag'] as String?),
+    );
+  }
+
+  final String name;
+  final String value;
+  final String unit;
+  final String referenceRange;
+  final ResultFlag flag;
+
+  @override
+  List<Object?> get props => [name, value, unit, referenceRange, flag];
+}
+
+/// A scanned page, photo or PDF the lab attached — the original the typed
+/// values were taken from.
+class ResultAttachment extends Equatable {
+  const ResultAttachment(
+      {required this.url, required this.name, this.isPdf = false});
+
+  final String url;
+  final String name;
+  final bool isPdf;
+
+  @override
+  List<Object?> get props => [url, name, isPdf];
+}
+
 /// A lab or imaging test the clinician ordered.
 ///
 /// This is the patient-facing end of the flow the product is built around:
@@ -43,10 +126,32 @@ class Investigation extends Equatable {
     this.resultText,
     this.resultUploadedAt,
     this.hasResultFile = false,
+    this.values = const [],
+    this.attachments = const [],
+    this.release = ResultRelease.released,
+    this.isSensitive = false,
   });
 
   factory Investigation.fromDjangoJson(Map<String, dynamic> row) {
     final result = row['result'] as Map<String, dynamic>?;
+    final attachments = <ResultAttachment>[
+      for (final a in (result?['attachments'] as List?) ?? const [])
+        if (a is Map && a['url'] is String)
+          ResultAttachment(
+            url: a['url'] as String,
+            name: a['name'] as String? ?? 'Attachment',
+            isPdf: '${a['content_type'] ?? ''}'.contains('pdf'),
+          ),
+    ];
+    // Today's single `file`: openable only once the server returns an
+    // absolute (signed) link; a bare /media/ path isn't served (R3).
+    final file = result?['file'];
+    if (attachments.isEmpty && file is String && file.startsWith('http')) {
+      attachments.add(ResultAttachment(
+          url: file,
+          name: 'Result file',
+          isPdf: file.toLowerCase().contains('.pdf')));
+    }
     return Investigation(
       id: '${row['id']}',
       testName: row['test_name'] as String? ?? 'Test',
@@ -60,10 +165,18 @@ class Investigation extends Equatable {
       resultText: result?['result_text'] as String?,
       resultUploadedAt:
           DateTime.tryParse(result?['uploaded_at'] as String? ?? '')?.toLocal(),
-      // The file is served from Django's MEDIA_URL and needs an
-      // authenticated fetch the app does not do yet, so its presence is
-      // surfaced without pretending it can be opened.
-      hasResultFile: result?['file'] != null,
+      hasResultFile: file != null || attachments.isNotEmpty,
+      values: [
+        for (final v in (result?['values'] as List?) ?? const [])
+          if (v is Map) ResultValue.fromDjangoJson(v.cast<String, dynamic>()),
+      ],
+      attachments: attachments,
+      release: switch (row['release_status']) {
+        'PENDING_REVIEW' => ResultRelease.pendingReview,
+        'HELD' => ResultRelease.heldForClinician,
+        _ => ResultRelease.released,
+      },
+      isSensitive: row['is_sensitive'] == true,
     );
   }
 
@@ -73,14 +186,25 @@ class Investigation extends Equatable {
   final InvestigationStatus status;
   final InvestigationPriority priority;
   final String reason;
+
   /// Null until the test is routed to a lab or imaging centre.
   final CareFacility? facility;
   final String? resultText;
   final DateTime? resultUploadedAt;
   final bool hasResultFile;
+  final List<ResultValue> values;
+  final List<ResultAttachment> attachments;
+  final ResultRelease release;
+
+  /// Asks for the fingerprint or PIN every time it is opened.
+  final bool isSensitive;
 
   bool get hasResult =>
-      (resultText != null && resultText!.trim().isNotEmpty) || hasResultFile;
+      (resultText != null && resultText!.trim().isNotEmpty) ||
+      hasResultFile ||
+      values.isNotEmpty;
+
+  bool get isVisibleToPatient => release == ResultRelease.released;
 
   static InvestigationStatus _statusFrom(String? value) => switch (value) {
         'ACCEPTED' => InvestigationStatus.accepted,
@@ -98,8 +222,19 @@ class Investigation extends Equatable {
 
   @override
   List<Object?> get props => [
-        id, testName, isImaging, status, priority, reason,
-        facility, resultText, resultUploadedAt,
+        id,
+        testName,
+        isImaging,
+        status,
+        priority,
+        reason,
+        facility,
+        resultText,
+        resultUploadedAt,
         hasResultFile,
+        values,
+        attachments,
+        release,
+        isSensitive,
       ];
 }

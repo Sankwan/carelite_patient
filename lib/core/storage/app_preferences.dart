@@ -35,4 +35,13 @@ class AppPreferences {
   Future<void> setHasSeenLocationPrompt({required bool value}) {
     return _prefs.setBool(_kHasSeenLocationPrompt, value);
   }
+
+  static const String _kRecordLockEnabled = 'record_lock_enabled';
+
+  /// The optional health-record lock (Profile → Privacy). Off by default.
+  bool get recordLockEnabled => _prefs.getBool(_kRecordLockEnabled) ?? false;
+
+  Future<void> setRecordLockEnabled({required bool value}) {
+    return _prefs.setBool(_kRecordLockEnabled, value);
+  }
 }

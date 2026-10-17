@@ -4,11 +4,14 @@ import 'package:carelite_app/core/network/failure.dart';
 import 'package:carelite_app/features/find_clinician/data/django_clinician_repository.dart';
 import 'package:carelite_app/features/find_clinician/domain/booking_request.dart';
 import 'package:carelite_app/features/find_clinician/domain/search_filter.dart';
+import 'package:carelite_app/features/location/data/location_repository.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _MockApiClient extends Mock implements ApiClient {}
+
+class _MockLocationRepository extends Mock implements LocationRepository {}
 
 Response<dynamic> _response(int status, dynamic body) => Response<dynamic>(
       requestOptions: RequestOptions(path: '/'),
@@ -190,6 +193,46 @@ void main() {
       expect(body['clinician'], 5);
       expect(body.containsKey('clinician_id'), isFalse);
       expect(result.when(ok: (a) => a.id, err: (f) => throw f), '13');
+    });
+
+    test('sends the patient\'s last position as the booking location',
+        () async {
+      // The server matches labs from capture_lat/lng; without it the
+      // clinician is offered no nearby lab.
+      final location = _MockLocationRepository();
+      when(() => location.lastKnown)
+          .thenReturn((latitude: 9.4, longitude: -0.85));
+      final located = DjangoClinicianRepository(client, location: location);
+      when(() => client.post(ApiContract.appointments, data: any(named: 'data')))
+          .thenAnswer((_) async => _response(400, {'detail': 'x'}));
+
+      await located.book(const BookingRequest(
+        type: BookingType.any,
+        mode: BookingMode.onDemand,
+      ));
+
+      final body = verify(() => client.post(
+            ApiContract.appointments,
+            data: captureAny(named: 'data'),
+          )).captured.single as Map<String, dynamic>;
+      expect(body['capture_lat'], 9.4);
+      expect(body['capture_lng'], -0.85);
+    });
+
+    test('books without a location rather than waiting for one', () async {
+      when(() => client.post(ApiContract.appointments, data: any(named: 'data')))
+          .thenAnswer((_) async => _response(400, {'detail': 'x'}));
+
+      await repository.book(const BookingRequest(
+        type: BookingType.any,
+        mode: BookingMode.onDemand,
+      ));
+
+      final body = verify(() => client.post(
+            ApiContract.appointments,
+            data: captureAny(named: 'data'),
+          )).captured.single as Map<String, dynamic>;
+      expect(body.containsKey('capture_lat'), isFalse);
     });
 
     test('an unmatched ANY booking surfaces the server\'s own reason',

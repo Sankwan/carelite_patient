@@ -26,11 +26,15 @@ class PrimaryButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return ElevatedButton(
       style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.teal,
-        disabledBackgroundColor: AppColors.teal.withValues(alpha: 0.5),
+        // Navy, not teal: teal is the app's accent color (nav selection,
+        // links, icons) everywhere else, so a teal button couldn't be told
+        // apart from an informational accent. Navy is reserved for "do
+        // this" — see docs/ui_research/phase3_design_system.md §2.
+        backgroundColor: AppColors.navy,
+        disabledBackgroundColor: AppColors.navy.withValues(alpha: 0.5),
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
-        // 48dp floor for the touch target regardless of label length.
-        minimumSize: const Size.fromHeight(48),
+        // Touch-target floor regardless of label length.
+        minimumSize: const Size.fromHeight(AppSpacing.touchTarget),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
         ),

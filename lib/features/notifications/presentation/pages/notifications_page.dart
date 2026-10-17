@@ -2,11 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../bootstrap.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/widgets/app_toast.dart';
+import '../../../medical_records/data/records_repository.dart';
+import '../../../medical_records/presentation/pages/record_detail_page.dart';
+import '../../../messages/data/messaging_repository.dart';
+import '../../../messages/presentation/pages/thread_page.dart';
 import '../../../profile/presentation/pages/record_access_page.dart';
 import '../../domain/app_notification.dart';
 import '../bloc/notifications_bloc.dart';
@@ -109,7 +114,9 @@ class NotificationsPage extends StatelessWidget {
     return switch (notification.type) {
       NotificationType.resultReady => 'View result',
       NotificationType.clinicianAssigned => 'View appointment',
+      NotificationType.appointmentCancelled => 'View appointments',
       NotificationType.incomingCall => 'Go to appointment',
+      NotificationType.newMessage => 'Reply',
       NotificationType.payment => null,
       // Only an access-request GENERIC has somewhere to go; others (none
       // today) fall through to null.
@@ -120,12 +127,18 @@ class NotificationsPage extends StatelessWidget {
 
   void _open(BuildContext context, AppNotification notification) {
     context.read<NotificationsBloc>().add(NotificationRead(notification.id));
+    // `go`, not `push`: Records and Appointments are tabs of the shell route,
+    // and pushing a tab's page over the shell (which already holds it)
+    // crashes the navigator with a duplicate page key.
     switch (notification.type) {
       case NotificationType.resultReady:
-        context.push(AppRoutes.medicalRecords);
+        _openRecord(context, notification.consultationId);
+      case NotificationType.newMessage:
+        _openConversation(context, notification.conversationId);
       case NotificationType.clinicianAssigned:
+      case NotificationType.appointmentCancelled:
       case NotificationType.incomingCall:
-        context.push(AppRoutes.appointments);
+        context.go(AppRoutes.appointments);
       case NotificationType.generic:
         if (notification.accessRequestId != null) {
           Navigator.of(context, rootNavigator: true).push<void>(
@@ -135,6 +148,48 @@ class NotificationsPage extends StatelessWidget {
       case NotificationType.payment:
         break;
     }
+  }
+
+  /// The exact record the result belongs to. Falls back to the Records tab
+  /// when the id is missing or the record can't be loaded, so the button
+  /// never leads nowhere.
+  Future<void> _openRecord(BuildContext context, int? consultationId) async {
+    if (consultationId == null) {
+      context.go(AppRoutes.medicalRecords);
+      return;
+    }
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final result =
+        await getIt<RecordsRepository>().fetchConsultation('$consultationId');
+    if (!context.mounted) return;
+    result.when(
+      ok: (consultation) => navigator.push<void>(MaterialPageRoute<void>(
+        builder: (_) => RecordDetailPage(consultation: consultation),
+      )),
+      err: (_) => context.go(AppRoutes.medicalRecords),
+    );
+  }
+
+  /// The thread the message arrived in, found in the inbox (there is no
+  /// single-conversation endpoint). Falls back to the Messages tab.
+  Future<void> _openConversation(
+    BuildContext context,
+    int? conversationId,
+  ) async {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final result = await getIt<MessagingRepository>().fetchConversations();
+    if (!context.mounted) return;
+    final conversation = result.when(
+      ok: (all) => all.where((c) => c.id == '$conversationId').firstOrNull,
+      err: (_) => null,
+    );
+    if (conversation == null) {
+      context.go(AppRoutes.messages);
+      return;
+    }
+    await navigator.push<void>(MaterialPageRoute<void>(
+      builder: (_) => ThreadPage(conversation: conversation),
+    ));
   }
 }
 

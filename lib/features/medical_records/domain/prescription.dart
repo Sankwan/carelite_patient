@@ -30,8 +30,9 @@ class PrescriptionItem extends Equatable {
 
   /// "500mg · twice daily · 5 days", skipping whatever is blank so the line
   /// never reads "· ·".
-  String get instructions =>
-      [dosage, frequency, duration].where((p) => p.trim().isNotEmpty).join(' · ');
+  String get instructions => [dosage, frequency, duration]
+      .where((p) => p.trim().isNotEmpty)
+      .join(' · ');
 
   @override
   List<Object?> get props => [drugName, dosage, frequency, duration, notes];
@@ -75,6 +76,5 @@ class Prescription extends Equatable {
   final DateTime? signedAt;
 
   @override
-  List<Object?> get props =>
-      [id, prescriberName, items, pharmacy, signedAt];
+  List<Object?> get props => [id, prescriberName, items, pharmacy, signedAt];
 }
