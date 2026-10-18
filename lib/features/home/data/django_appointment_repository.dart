@@ -38,14 +38,17 @@ class DjangoAppointmentRepository implements AppointmentRepository {
           final isPending = appointment.status == AppointmentStatus.requested ||
               appointment.status == AppointmentStatus.confirmed ||
               appointment.status == AppointmentStatus.inProgress;
-          // A REQUESTED/CONFIRMED appointment more than a day in the past
-          // was never resolved (never started, never cancelled) — treat it
-          // as stale rather than surfacing it as "upcoming" forever.
-          final isRecent =
-              appointment.scheduledFor.isAfter(now.subtract(const Duration(days: 1)));
-          return isPending && isRecent;
+          // Past its window with nobody started (the 15-minute no-show
+          // rule) — it's missed, not upcoming.
+          final isMissed = appointment.timingAt(now) == VisitTiming.missed;
+          return isPending && !isMissed;
         }).toList()
-          ..sort((a, b) => a.scheduledFor.compareTo(b.scheduledFor));
+          // A consultation under way comes first, then the soonest.
+          ..sort((a, b) {
+            final live = (b.status == AppointmentStatus.inProgress ? 1 : 0)
+                .compareTo(a.status == AppointmentStatus.inProgress ? 1 : 0);
+            return live != 0 ? live : a.scheduledFor.compareTo(b.scheduledFor);
+          });
         return Result.ok(upcoming.isEmpty ? null : upcoming.first);
       },
       err: Result.err,

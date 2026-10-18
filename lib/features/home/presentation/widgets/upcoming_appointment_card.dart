@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
@@ -22,6 +23,9 @@ class UpcomingAppointmentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = appointment.provider;
     final rating = provider.rating;
+    final now = DateTime.now();
+    final timing = appointment.timingAt(now);
+    final isLive = timing == VisitTiming.live;
 
     return Container(
       width: double.infinity,
@@ -33,12 +37,24 @@ class UpcomingAppointmentCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'UPCOMING APPOINTMENT',
-            style: AppTextStyles.caption.copyWith(
-              color: AppColors.white,
-              letterSpacing: 1,
-            ),
+          Row(
+            children: [
+              if (isLive) ...[
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(color: AppColors.white, shape: BoxShape.circle),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+              ],
+              Text(
+                isLive ? 'CONSULTATION IN PROGRESS' : 'UPCOMING APPOINTMENT',
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.white,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: AppSpacing.md),
           Row(
@@ -110,7 +126,12 @@ class UpcomingAppointmentCard extends StatelessWidget {
                 // REQUESTED appointments cannot be joined yet — the clinician
                 // has not confirmed — so the button reflects that honestly
                 // instead of offering a call that will fail.
-                appointment.isJoinable ? 'Join Call' : 'Awaiting Confirmation',
+                appointment.joinLabelAt(now) ??
+                    switch ((appointment.status, timing)) {
+                      (AppointmentStatus.requested, _) => 'Awaiting Confirmation',
+                      (_, VisitTiming.early) => 'Get ready from ${DateFormat('h:mm a').format(appointment.opensAt)}',
+                      _ => 'View appointment',
+                    },
                 style: AppTextStyles.buttonLabel.copyWith(color: AppColors.blue),
               ),
             ),

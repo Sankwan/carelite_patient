@@ -24,7 +24,7 @@ void main() {
     displayName: 'Dr. Adjei',
     specialty: 'Cardiology',
   );
-  final appointment = Appointment(
+  final defaultAppointment = Appointment(
     id: '15',
     provider: clinician,
     scheduledFor: DateTime.now().add(const Duration(hours: 1)),
@@ -33,7 +33,8 @@ void main() {
 
   setUp(() => bloc = _MockPrecallBloc());
 
-  Future<void> pumpPage(WidgetTester tester, PrecallState state) async {
+  Future<void> pumpPage(WidgetTester tester, PrecallState state,
+      {Appointment? appointment}) async {
     when(() => bloc.state).thenReturn(state);
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 1.0;
@@ -42,7 +43,7 @@ void main() {
       MaterialApp(
         home: BlocProvider<PrecallBloc>.value(
           value: bloc,
-          child: PrecallView(appointment: appointment),
+          child: PrecallView(appointment: appointment ?? defaultAppointment),
         ),
       ),
     );
@@ -88,17 +89,39 @@ void main() {
         .called(1);
   });
 
-  testWidgets('once acknowledged, the button becomes Join Call and needs no '
-      're-ticking', (tester) async {
+  testWidgets('once acknowledged, the patient waits for the clinician to call '
+      'and needs no re-ticking', (tester) async {
     // The gate is per-appointment server state, not a local form — a
     // patient who already confirmed on an earlier visit should not have to
-    // re-tick four boxes to join.
+    // re-tick four boxes. The clinician leads, so before the booked time
+    // the patient waits rather than calls.
     await pumpPage(tester, const PrecallState(
       status: PrecallStepStatus.ready,
       serverStatus: PrecallStatus(youAcknowledged: true, canJoin: true),
     ));
 
-    expect(find.text('Join Call'), findsOneWidget);
+    expect(find.textContaining('Waiting for Dr. Adjei to call'), findsOneWidget);
+    final button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
+    expect(button.onPressed, isNull);
+  });
+
+  testWidgets('from the booked time the patient can call a late clinician',
+      (tester) async {
+    await pumpPage(
+      tester,
+      const PrecallState(
+        status: PrecallStepStatus.ready,
+        serverStatus: PrecallStatus(youAcknowledged: true, canJoin: true),
+      ),
+      appointment: Appointment(
+        id: '16',
+        provider: clinician,
+        scheduledFor: DateTime.now().subtract(const Duration(minutes: 2)),
+        status: AppointmentStatus.confirmed,
+      ),
+    );
+
+    expect(find.text('Call Dr. Adjei'), findsOneWidget);
     final button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
     expect(button.onPressed, isNotNull);
   });
@@ -110,7 +133,8 @@ void main() {
       serverStatus: PrecallStatus(youAcknowledged: true, canJoin: true),
     ));
 
-    expect(find.textContaining('confirm their checklist when they answer'), findsOneWidget);
+    expect(find.textContaining('will call you here, so keep this screen open'),
+        findsOneWidget);
   });
 
   testWidgets('shows both ready once both participants have confirmed',
@@ -121,7 +145,8 @@ void main() {
           PrecallStatus(youAcknowledged: true, canJoin: true, bothReady: true),
     ));
 
-    expect(find.text('You\'re both ready to join.'), findsOneWidget);
+    expect(find.text('You\'re both ready. Dr. Adjei will call you here.'),
+        findsOneWidget);
   });
 
   testWidgets('a failure is shown as a toast, not a blank screen',

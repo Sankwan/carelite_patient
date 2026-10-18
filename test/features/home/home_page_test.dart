@@ -110,7 +110,8 @@ void main() {
     expect(find.text('UPCOMING APPOINTMENT'), findsOneWidget);
     expect(find.text('Top clinicians'), findsOneWidget);
     expect(find.text('Recent Activity'), findsOneWidget);
-    expect(find.text('Join Call'), findsOneWidget);
+    // Three hours out: nothing to join yet, so it says when it opens.
+    expect(find.textContaining('Get ready from'), findsOneWidget);
 
     // Escrow status is surfaced read-only (requirement #9).
     expect(

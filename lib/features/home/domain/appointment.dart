@@ -7,6 +7,10 @@ import 'provider.dart';
 /// live Django backend (a fresh booking comes back `"status": "REQUESTED"`).
 enum AppointmentStatus { requested, confirmed, inProgress, completed, cancelled }
 
+/// Where an appointment stands against the clock — the same rule the
+/// clinician app uses, so both sides agree on when a visit is open or missed.
+enum VisitTiming { early, open, missed, live, closed }
+
 /// The backend has no consultation-kind field on Appointment at all — a
 /// video/voice choice lives on `calls.CallSession`, one level down, created
 /// only once a call is actually initiated. There is nothing to read it from
@@ -32,6 +36,10 @@ class Appointment extends Equatable {
     this.consultationType = ConsultationKind.video,
     this.escrowStatus,
     this.notes,
+    this.consultationId,
+    this.activeCallId,
+    this.requestedAt,
+    this.isOnDemand = false,
   });
 
   /// Parses `appointments.serializers.AppointmentSerializer`'s shape —
@@ -69,6 +77,10 @@ class Appointment extends Equatable {
         (row['scheduled_at'] ?? row['created_at']) as String,
       ).toLocal(),
       status: _statusFrom(row['status'] as String),
+      consultationId: row['consultation_id']?.toString(),
+      activeCallId: row['active_call_id']?.toString(),
+      requestedAt: DateTime.tryParse(row['created_at'] as String? ?? '')?.toLocal(),
+      isOnDemand: row['mode'] == 'ON_DEMAND' || row['scheduled_at'] == null,
       // escrowStatus and notes are left at their null defaults: no
       // payments/escrow exist in this backend (Increment 7 explicitly
       // deferred), and consultation notes are a separate versioned resource
@@ -87,11 +99,53 @@ class Appointment extends Equatable {
   final String? escrowStatus;
   final String? notes;
 
+  /// Set once the clinician has started the consultation.
+  final String? consultationId;
+
+  /// A call ringing or connected right now.
+  final String? activeCallId;
+  final DateTime? requestedAt;
+
+  /// "See a clinician now" rather than a booked slot.
+  final bool isOnDemand;
+
+  /// The patient can get ready this long before the booked time.
+  static const Duration opensBefore = Duration(minutes: 10);
+
+  /// Agreed no-show rule: 15 minutes past the booked time with nobody
+  /// started, the visit counts as missed.
+  static const Duration missedAfter = Duration(minutes: 15);
+
+  DateTime get dueAt => isOnDemand ? (requestedAt ?? scheduledFor) : scheduledFor;
+  DateTime get opensAt => isOnDemand ? dueAt : dueAt.subtract(opensBefore);
+  DateTime get missedAt => dueAt.add(missedAfter);
+
+  VisitTiming timingAt(DateTime now) => switch (status) {
+        AppointmentStatus.inProgress => VisitTiming.live,
+        AppointmentStatus.completed || AppointmentStatus.cancelled => VisitTiming.closed,
+        _ when now.isAfter(missedAt) => VisitTiming.missed,
+        _ when now.isBefore(opensAt) => VisitTiming.early,
+        _ => VisitTiming.open,
+      };
+
   /// REQUESTED means booked but not yet confirmed by the clinician — showing
   /// a live "Join Call" for it would let a patient try to join a call no
-  /// clinician has agreed to.
-  bool get isJoinable =>
-      status == AppointmentStatus.confirmed || status == AppointmentStatus.inProgress;
+  /// clinician has agreed to. A confirmed visit is joinable only inside its
+  /// window; once missed, there is nothing left to join.
+  bool get isJoinable => isJoinableAt(DateTime.now());
+
+  bool isJoinableAt(DateTime now) {
+    final timing = timingAt(now);
+    return timing == VisitTiming.live ||
+        (status == AppointmentStatus.confirmed && timing == VisitTiming.open);
+  }
+
+  /// The patient's button for this appointment at [now], or null.
+  String? joinLabelAt(DateTime now) => switch ((status, timingAt(now))) {
+        (_, VisitTiming.live) => 'Rejoin consultation',
+        (AppointmentStatus.confirmed, VisitTiming.open) => 'I\'m ready',
+        _ => null,
+      };
 
   /// Still live: the patient can act on it. Used to split the Appointments
   /// screen's two tabs, so that together they account for every appointment
@@ -109,7 +163,15 @@ class Appointment extends Equatable {
   /// What the status chip reads. Deliberately the patient's wording, not the
   /// wire value: REQUESTED means "the clinician has not accepted yet", which
   /// "Requested" alone does not convey.
-  String get statusLabel => switch (status) {
+  String get statusLabel => statusLabelAt(DateTime.now());
+
+  String statusLabelAt(DateTime now) => switch ((status, timingAt(now))) {
+        (AppointmentStatus.requested, VisitTiming.missed) => 'Not accepted in time',
+        (AppointmentStatus.confirmed, VisitTiming.missed) => 'Missed',
+        _ => _baseStatusLabel,
+      };
+
+  String get _baseStatusLabel => switch (status) {
         AppointmentStatus.requested => 'Awaiting confirmation',
         AppointmentStatus.confirmed => 'Confirmed',
         AppointmentStatus.inProgress => 'In progress',
@@ -144,6 +206,10 @@ class Appointment extends Equatable {
       consultationType: consultationType,
       escrowStatus: escrowStatus,
       notes: notes,
+      consultationId: consultationId,
+      activeCallId: activeCallId,
+      requestedAt: requestedAt,
+      isOnDemand: isOnDemand,
     );
   }
 
@@ -160,5 +226,8 @@ class Appointment extends Equatable {
 
   @override
   List<Object?> get props =>
-      [id, provider, scheduledFor, status, consultationType, escrowStatus, notes];
+      [
+        id, provider, scheduledFor, status, consultationType, escrowStatus, notes,
+        consultationId, activeCallId, requestedAt, isOnDemand,
+      ];
 }

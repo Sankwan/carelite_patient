@@ -23,6 +23,13 @@ class RealtimeSession with WidgetsBindingObserver {
   static const Set<String> appointmentTypes = {
     'CLINICIAN_ASSIGNED',
     'APPOINTMENT_CANCELLED',
+    'APPOINTMENT_CONFIRMED',
+    'CONSULTATION_STARTED',
+    'CONSULTATION_COMPLETED',
+    'APPOINTMENT_MISSED',
+    'CALL_MISSED',
+    // A call starting or ending moves the appointment on too.
+    'INCOMING_CALL',
   };
 
   final RealtimeClient _client;

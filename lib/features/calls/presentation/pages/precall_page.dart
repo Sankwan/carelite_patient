@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../bootstrap.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -160,7 +161,11 @@ class PrecallView extends StatelessWidget {
                       ),
                       if (state.serverStatus.youAcknowledged) ...[
                         const SizedBox(height: AppSpacing.lg),
-                        _ReadinessBanner(serverStatus: state.serverStatus),
+                        _ReadinessBanner(
+                          serverStatus: state.serverStatus,
+                          clinicianName: appointment.provider.displayName,
+                          isAnswering: answeringCallId != null,
+                        ),
                       ],
                     ],
                   ),
@@ -320,9 +325,17 @@ class _ChecklistTile extends StatelessWidget {
 }
 
 class _ReadinessBanner extends StatelessWidget {
-  const _ReadinessBanner({required this.serverStatus});
+  const _ReadinessBanner({
+    required this.serverStatus,
+    required this.clinicianName,
+    required this.isAnswering,
+  });
 
   final PrecallStatus serverStatus;
+  final String clinicianName;
+
+  /// Answering the clinician's call, rather than waiting for one.
+  final bool isAnswering;
 
   @override
   Widget build(BuildContext context) {
@@ -343,13 +356,13 @@ class _ReadinessBanner extends StatelessWidget {
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
-              bothReady
-                  ? 'You\'re both ready to join.'
-                  // Join is already enabled here, so this must not read as
-                  // "wait": the clinician confirms their own checklist
-                  // when they answer.
-                  : 'You\'re ready. Call now, and the clinician will '
-                      'confirm their checklist when they answer.',
+              switch ((isAnswering, bothReady)) {
+                (true, _) => 'You\'re ready. Join $clinicianName now.',
+                // The clinician leads: they call when they start.
+                (false, true) => 'You\'re both ready. $clinicianName will call you here.',
+                (false, false) => 'You\'re ready. $clinicianName will call you here, '
+                    'so keep this screen open.',
+              },
               style: AppTextStyles.caption.copyWith(
                 color: bothReady ? AppColors.success : AppColors.goldText,
                 fontWeight: FontWeight.w600,
@@ -375,8 +388,18 @@ class _BottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canJoin = state.serverStatus.youAcknowledged;
-    final blocked = !canJoin && !state.checklist.isComplete;
+    final acknowledged = state.serverStatus.youAcknowledged;
+    final now = DateTime.now();
+    // The clinician calls first. The patient can call too once the booked
+    // time has come (the clinician may be running late) or the visit is
+    // under way; answering a call is always allowed.
+    final mayCall = answeringCallId != null ||
+        appointment.timingAt(now) == VisitTiming.live ||
+        !now.isBefore(appointment.dueAt);
+    final canJoin = acknowledged && mayCall;
+    final waiting = acknowledged && !mayCall;
+    final blocked = !acknowledged && !state.checklist.isComplete;
+    final clinician = appointment.provider.displayName;
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: const BoxDecoration(
@@ -399,6 +422,8 @@ class _BottomBar extends StatelessWidget {
             child: ElevatedButton(
               onPressed: canJoin
                   ? () => _openCall(context)
+                  : waiting
+                  ? null
                   : (state.canSubmit
                       ? () => context
                           .read<PrecallBloc>()
@@ -422,8 +447,19 @@ class _BottomBar extends StatelessWidget {
                       ),
                     )
                   : Text(
-                      canJoin ? 'Join Call' : 'Confirm and continue',
-                      style: AppTextStyles.buttonLabel,
+                      switch ((canJoin, waiting)) {
+                        (true, _) when answeringCallId != null => 'Join Call',
+                        (true, _) => 'Call $clinician',
+                        (_, true) =>
+                          'Waiting for $clinician to call · ${DateFormat('h:mm a').format(appointment.dueAt)}',
+                        _ => 'Confirm and continue',
+                      },
+                      // Waiting is a state, not a dead button: readable grey.
+                      style: waiting
+                          ? AppTextStyles.buttonLabel
+                              .copyWith(color: AppColors.muted)
+                          : AppTextStyles.buttonLabel,
+                      textAlign: TextAlign.center,
                     ),
             ),
           ),

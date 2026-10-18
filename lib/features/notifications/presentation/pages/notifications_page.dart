@@ -118,6 +118,11 @@ class NotificationsPage extends StatelessWidget {
       NotificationType.incomingCall => 'Go to appointment',
       NotificationType.newMessage => 'Reply',
       NotificationType.payment => null,
+      NotificationType.appointmentConfirmed => 'View appointment',
+      NotificationType.consultationStarted => 'Go to appointment',
+      NotificationType.consultationCompleted => 'View summary',
+      NotificationType.appointmentMissed => 'Book again',
+      NotificationType.callMissed => 'Go to appointment',
       // Only an access-request GENERIC has somewhere to go; others (none
       // today) fall through to null.
       NotificationType.generic =>
@@ -132,7 +137,14 @@ class NotificationsPage extends StatelessWidget {
     // crashes the navigator with a duplicate page key.
     switch (notification.type) {
       case NotificationType.resultReady:
+      case NotificationType.consultationCompleted:
         _openRecord(context, notification.consultationId);
+      case NotificationType.appointmentConfirmed:
+      case NotificationType.consultationStarted:
+      case NotificationType.callMissed:
+        context.go(AppRoutes.appointments);
+      case NotificationType.appointmentMissed:
+        context.push(AppRoutes.findClinician);
       case NotificationType.newMessage:
         _openConversation(context, notification.conversationId);
       case NotificationType.clinicianAssigned:

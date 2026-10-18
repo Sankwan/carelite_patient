@@ -43,10 +43,12 @@ void main() {
     specialty: 'Cardiology',
   );
 
-  Appointment build(String id, AppointmentStatus status) => Appointment(
+  Appointment build(String id, AppointmentStatus status,
+          {Duration from = const Duration(days: 1)}) =>
+      Appointment(
         id: id,
         provider: clinician,
-        scheduledFor: DateTime.now().add(const Duration(days: 1)),
+        scheduledFor: DateTime.now().add(from),
         status: status,
       );
 
@@ -109,12 +111,29 @@ void main() {
     expect(find.text('Join call'), findsNothing);
   });
 
-  testWidgets('a CONFIRMED appointment offers Join call', (tester) async {
+  testWidgets('a CONFIRMED appointment offers "I\'m ready" inside its window',
+      (tester) async {
     await pumpPage(tester, AppointmentsState(
       status: AppointmentsStatus.ready,
-      appointments: [build('2', AppointmentStatus.confirmed)],
+      appointments: [
+        build('2', AppointmentStatus.confirmed,
+            from: const Duration(minutes: 5)),
+      ],
     ));
-    expect(find.text('Join call'), findsOneWidget);
+    expect(find.text('I\'m ready'), findsOneWidget);
+  });
+
+  testWidgets('a CONFIRMED appointment nobody started in time reads as missed',
+      (tester) async {
+    await pumpPage(tester, AppointmentsState(
+      status: AppointmentsStatus.ready,
+      appointments: [
+        build('3', AppointmentStatus.confirmed,
+            from: const Duration(minutes: -20)),
+      ],
+    ));
+    expect(find.text('Missed'), findsOneWidget);
+    expect(find.text('I\'m ready'), findsNothing);
   });
 
   testWidgets('a past appointment offers no Cancel', (tester) async {

@@ -23,7 +23,7 @@ detailed record, with the same IDs):
 | Tier | What it means | Items |
 |---|---|---|
 | **P0** | Without these, a stakeholder can't install the APK and see the core journey work | R1, PT-B3, R2, R3, L1, v2 stage 1, R4, PT-B2 |
-| **P1** | Needed before real patients use it | R13–R18 (results and record access), Push, payments, PT-N2a, PT-C10, PT-C12, PT-C7, PT-C11, L2, L4, N4, PT-N1, PT-V1–V3, R5, reroute cron |
+| **P1** | Needed before real patients use it | R19–R24 (timing, sessions, notifications), R13–R18 (results and record access), Push, payments, PT-N2a, PT-C10, PT-C12, PT-C7, PT-C11, L2, L4, N4, PT-N1, PT-V1–V3, R5, reroute cron |
 | **P2** | Later | Rating, photo, NHIS, reschedule, clinician sign-up, featured listings, PT-S1, PT-N6, PT-C2 |
 
 The single biggest item is **v2 stage 1** (test orders). Every lab and
@@ -413,6 +413,74 @@ the test name or value.
 optional fingerprint/face lock for Records, off by default. It also asks
 for a fingerprint every time a sensitive result is opened. CareLite Pro
 computes each file's fingerprint on the device.
+
+## Appointment timing, sessions and notifications (R19–R24)
+
+Agreed with product on 17 Oct 2026: a visit opens **10 minutes before**
+its time and is **missed 15 minutes after** it with nobody started; the
+**clinician leads** the call. Both apps already apply this on screen
+(CareLite Pro's Queue has a Missed group with Close instead of Start; the
+patient sees "I'm ready", then "Waiting for Dr X to call"). The server
+must enforce it and tell people.
+
+Verified in the backend today: `confirm`, `start`, `complete` and
+`cancel` send nothing; `start` lets a clinician have several IN_PROGRESS
+consultations at once (two live since 15 Oct in the demo data); nothing
+expires a CONFIRMED visit; `CallSession.MISSED` is never set.
+
+### R19. Missed and expired visits
+
+- A scheduled job (every 5 min, beside the reroute job): CONFIRMED with
+  `scheduled_at + 15 min < now` and no consultation → `NO_SHOW` (or
+  CANCELLED with `cancellation_reason = NO_SHOW`); REQUESTED past the same
+  point → `EXPIRED`. ON_DEMAND measures from `created_at`.
+- Notify both sides: `APPOINTMENT_MISSED` `{appointment_id}`.
+- `POST /api/appointments/{id}/no-show/` so the clinician can close one
+  early. Until then the app's "Close as missed" is a plain cancel.
+- `start` refuses (400) before `scheduled_at - 10 min` or after the
+  missed point.
+
+### R20. One consultation at a time
+
+`start` returns **409** when the clinician already has an IN_PROGRESS
+appointment, naming it. Flag IN_PROGRESS rows older than ~4 h for the
+clinician to close.
+
+### R21. Accept, decline, cancel
+
+| Action | Notify | Type | Payload |
+|---|---|---|---|
+| `confirm` | patient | `APPOINTMENT_CONFIRMED` | `{appointment_id}` |
+| `cancel` by clinician (decline) | patient | `APPOINTMENT_CANCELLED` | `{appointment_id, reason}` |
+| `cancel` by patient | clinician | `APPOINTMENT_CANCELLED` | `{appointment_id, reason}` |
+
+Accept `{"reason": …}` on cancel (PT-C7).
+
+### R22. The session starting and ending
+
+- `start` → patient `CONSULTATION_STARTED` `{appointment_id, consultation_id}`.
+- `complete` → patient `CONSULTATION_COMPLETED` `{appointment_id, consultation_id}`
+  (in-app, as well as today's email); the patient app opens the summary
+  from it.
+- Patient saves the pre-call checklist inside the window → clinician
+  `PATIENT_WAITING` `{appointment_id}`, so the clinician knows to start.
+
+### R23. Calls
+
+- Ring timeout (45 s, matching the apps): RINGING → `MISSED`, and the
+  callee gets `CALL_MISSED` `{appointment_id, call_id}`.
+- Refuse `initiate` on a COMPLETED/CANCELLED/missed appointment.
+- `complete` and `cancel` end any RINGING/ACCEPTED call.
+- `INCOMING_CALL` body uses the full name; add `appointment_id`,
+  `caller_name` (PT-C12).
+
+### R24. Realtime and errors
+
+- Push an `appointment` socket event `{appointment_id, status}` to both
+  participants on every status change, so lists move without a
+  notification row.
+- One error shape everywhere, `{detail, code}`, with 409 for state
+  conflicts ("already started", "another consultation is in progress").
 
 ## Recommendations from the end-to-end run
 

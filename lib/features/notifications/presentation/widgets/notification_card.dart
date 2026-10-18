@@ -141,6 +141,11 @@ class NotificationCard extends StatelessWidget {
         NotificationType.appointmentCancelled => Icons.event_busy_outlined,
         NotificationType.newMessage => Icons.chat_bubble_outline_rounded,
         NotificationType.payment => Icons.payments_outlined,
+        NotificationType.appointmentConfirmed => Icons.event_available_outlined,
+        NotificationType.consultationStarted => Icons.videocam_outlined,
+        NotificationType.consultationCompleted => Icons.task_alt_rounded,
+        NotificationType.appointmentMissed => Icons.event_busy_outlined,
+        NotificationType.callMissed => Icons.phone_missed_outlined,
         NotificationType.generic => Icons.notifications_none_rounded,
       };
 
@@ -151,6 +156,11 @@ class NotificationCard extends StatelessWidget {
         NotificationType.appointmentCancelled => AppColors.error,
         NotificationType.newMessage => AppColors.teal,
         NotificationType.payment => AppColors.goldText,
+        NotificationType.appointmentConfirmed => AppColors.success,
+        NotificationType.consultationStarted => AppColors.teal,
+        NotificationType.consultationCompleted => AppColors.success,
+        NotificationType.appointmentMissed => AppColors.error,
+        NotificationType.callMissed => AppColors.error,
         NotificationType.generic => AppColors.muted,
       };
 }

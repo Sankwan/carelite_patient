@@ -31,7 +31,11 @@ class AppointmentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = _accentFor(appointment.status);
+    final now = DateTime.now();
+    final accent = appointment.timingAt(now) == VisitTiming.missed
+        ? AppColors.error
+        : _accentFor(appointment.status);
+    final joinLabel = appointment.joinLabelAt(now);
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
@@ -80,18 +84,18 @@ class AppointmentCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
-              _StatusChip(label: appointment.statusLabel, accent: accent),
+              _StatusChip(label: appointment.statusLabelAt(now), accent: accent),
             ],
           ),
-          if (onCancel != null || appointment.isJoinable) ...[
+          if (onCancel != null || joinLabel != null) ...[
             const SizedBox(height: AppSpacing.md),
             Row(
               children: [
-                if (appointment.isJoinable)
+                if (joinLabel != null)
                   Expanded(
-                    child: PrimaryButton(label: 'Join call', onPressed: onJoin),
+                    child: PrimaryButton(label: joinLabel, onPressed: onJoin),
                   ),
-                if (appointment.isJoinable && onCancel != null)
+                if (joinLabel != null && onCancel != null)
                   const SizedBox(width: AppSpacing.sm),
                 if (onCancel != null)
                   Expanded(

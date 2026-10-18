@@ -180,7 +180,26 @@ void main() {
     test('a requested appointment is not joinable', () {
       // REQUESTED means no clinician has accepted yet.
       expect(build('1', AppointmentStatus.requested).isJoinable, isFalse);
-      expect(build('2', AppointmentStatus.confirmed).isJoinable, isTrue);
+    });
+
+    test('a confirmed visit is joinable from 10 minutes before until 15 after',
+        () {
+      final visit = build('2', AppointmentStatus.confirmed);
+      final at = visit.scheduledFor;
+      expect(visit.isJoinableAt(at.subtract(const Duration(minutes: 11))),
+          isFalse);
+      expect(visit.isJoinableAt(at.subtract(const Duration(minutes: 10))),
+          isTrue);
+      expect(visit.isJoinableAt(at.add(const Duration(minutes: 15))), isTrue);
+      expect(visit.isJoinableAt(at.add(const Duration(minutes: 16))), isFalse);
+      expect(visit.statusLabelAt(at.add(const Duration(minutes: 16))),
+          'Missed');
+    });
+
+    test('a consultation under way can always be rejoined', () {
+      final live = build('3', AppointmentStatus.inProgress);
+      expect(live.joinLabelAt(live.scheduledFor.add(const Duration(hours: 2))),
+          'Rejoin consultation');
     });
   });
 }

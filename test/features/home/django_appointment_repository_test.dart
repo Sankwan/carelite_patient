@@ -172,7 +172,8 @@ void main() {
       // treats a pending appointment scheduled over a day in the past as
       // stale and correctly filters it out — a hardcoded date would silently
       // start failing this test the day it turns more than a day old.
-      final createdAt = now.subtract(const Duration(hours: 2));
+      // Inside the 15-minute window, so it isn't treated as missed.
+      final createdAt = now.subtract(const Duration(minutes: 5));
       when(() => client.get(ApiContract.appointments)).thenAnswer(
         (_) async => _response(200, {
           'results': [
